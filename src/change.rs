@@ -1,14 +1,12 @@
 use std::fmt::Debug;
 
 #[derive(Clone, Debug)]
-pub enum Change<P: Position> {
+pub enum Change<P> {
     Delete { start: P, end: P },
     Insert { at: P, text: String },
     Replace { start: P, end: P, text: String },
 }
 
-pub trait Position: Clone + Copy + Debug {}
-pub trait PositionItem: Clone + Copy + Debug {}
 pub trait AsRawIndex {
     /// The raw internal index.
     ///
@@ -24,11 +22,9 @@ pub trait ToByteIndex: AsRawIndex {
     fn to_byte_index_exclusive(self, s: &str) -> usize;
 }
 
-#[derive(Clone, Copy, Debug, Hash)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ByteIndex(pub usize);
 
-impl Position for ByteIndex {}
-impl PositionItem for ByteIndex {}
 impl AsRawIndex for ByteIndex {
     fn as_raw_index(&self) -> usize {
         self.0
@@ -44,11 +40,9 @@ impl ToByteIndex for ByteIndex {
     }
 }
 
-#[derive(Clone, Copy, Debug, Hash)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NthChar(pub usize);
 
-impl Position for NthChar {}
-impl PositionItem for NthChar {}
 impl AsRawIndex for NthChar {
     fn as_raw_index(&self) -> usize {
         self.0
@@ -74,13 +68,12 @@ impl ToByteIndex for NthChar {
     }
 }
 
-#[derive(Clone, Copy, Debug, Hash)]
+#[derive(Clone, Copy, Debug)]
 pub struct GridIndex<P> {
     pub row: usize,
     pub col: P,
 }
 
-impl<P: ToByteIndex + PositionItem> Position for GridIndex<P> {}
 #[cfg(feature = "lsp-types")]
 mod lsp_types {
     use lsp_types::Position;

@@ -1,12 +1,11 @@
 use std::{
     fmt::{Debug, Display},
-    ops::Index,
     sync::LazyLock,
 };
 
 use memchr::memmem::Finder;
 
-use crate::change::{ByteIndex, Change, GridIndex, Position, PositionItem, ToByteIndex};
+use crate::change::{Change, GridIndex, ToByteIndex};
 
 #[derive(Clone, Default)]
 pub struct Text {
@@ -74,10 +73,7 @@ impl Text {
         Self { text, br_indexes }
     }
 
-    pub fn update<B: Position + ToByteIndex + PositionItem>(
-        &mut self,
-        change: Change<GridIndex<B>>,
-    ) {
+    pub fn update<B: ToByteIndex + Copy>(&mut self, change: Change<GridIndex<B>>) {
         match change {
             Change::Delete { start, end } => {
                 let (start_index, end_index) = {
