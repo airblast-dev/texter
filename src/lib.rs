@@ -1,3 +1,3 @@
 mod change;
-mod text;
+mod texter;
 mod utils;
