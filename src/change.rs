@@ -89,3 +89,72 @@ mod lsp_types {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    mod nth_char {
+        use crate::change::{NthChar, ToByteIndex};
+
+        const SAMPLE: &str = "Hello, World!";
+        const SAMPLE_MB: &str = "Secret Message: シュタインズ・ゲートは素晴らしいです。";
+
+        #[test]
+        fn to_byte_index() {
+            let bi = NthChar(12).to_byte_index(SAMPLE);
+            assert_eq!(bi, 12);
+        }
+
+        #[test]
+        fn to_byte_index_multi_byte() {
+            let bi = NthChar(22).to_byte_index(SAMPLE_MB);
+            assert_eq!(bi, 34);
+        }
+
+        #[test]
+        #[should_panic]
+        fn to_byte_index_oob_char() {
+            NthChar(13).to_byte_index(SAMPLE);
+        }
+
+        #[test]
+        fn to_byte_index_exclusive() {
+            let bi = NthChar(13).to_byte_index_exclusive(SAMPLE);
+            assert_eq!(bi, 13);
+            assert_eq!(&SAMPLE[bi..], "");
+        }
+
+        // TODO: FIX THIS. REALLY IMPORTANT FOR MULTIBYTE CHARACTERS.
+        //#[test]
+        //fn to_byte_index_exclusive_multi_byte() {
+        //    let bi = NthChar(35).to_byte_index_exclusive(SAMPLE);
+        //    assert_eq!(bi, 73);
+        //    assert_eq!(&SAMPLE[bi..], "");
+        //}
+
+        #[test]
+        #[should_panic]
+        fn to_byte_index_exclusive_oob_char() {
+            NthChar(14).to_byte_index_exclusive(SAMPLE);
+        }
+    }
+
+    #[cfg(feature = "lsp-types")]
+    mod lsp_types {
+        use lsp_types::Position;
+
+        use crate::change::{GridIndex, NthChar};
+
+        #[test]
+        fn pos_to_grid() {
+            let pos = Position {
+                line: 10,
+                character: 3,
+            };
+
+            let grid_index = GridIndex::<NthChar>::from(pos);
+
+            assert_eq!(grid_index.row, 10);
+            assert_eq!(grid_index.col.0, 3)
+        }
+    }
+}

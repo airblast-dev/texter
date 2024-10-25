@@ -233,7 +233,7 @@ mod tests {
     }
 
     #[test]
-    fn insert() {
+    fn insert_into_empty() {
         let mut t = Text::new(String::new());
         assert_eq!(t.br_indexes.0, [0]);
         t.update(Change::Insert {
@@ -249,7 +249,39 @@ mod tests {
     }
 
     #[test]
-    fn insert_single_line_in_middle() {
+    fn insert_in_start() {
+        let mut t = Text::new(String::from("Apples"));
+        assert_eq!(t.br_indexes.0, [0]);
+        t.update(Change::Insert {
+            at: GridIndex {
+                row: 0,
+                col: NthChar(0),
+            },
+            text: "Hello, World!".to_string(),
+        });
+
+        assert_eq!(t.text, "Hello, World!Apples");
+        assert_eq!(t.br_indexes, [0]);
+    }
+
+    #[test]
+    fn insert_in_end() {
+        let mut t = Text::new(String::from("Apples"));
+        assert_eq!(t.br_indexes.0, [0]);
+        t.update(Change::Insert {
+            at: GridIndex {
+                row: 0,
+                col: NthChar(6),
+            },
+            text: "Hello, \nWorld!\n".to_string(),
+        });
+
+        assert_eq!(t.text, "ApplesHello, \nWorld!\n");
+        assert_eq!(t.br_indexes, [0, 13, 20]);
+    }
+
+    #[test]
+    fn insert_multi_line_in_middle() {
         let mut t = Text::new(String::from("ABC\nDEF"));
         assert_eq!(t.br_indexes.0, [0, 3]);
         t.update(Change::Insert {
@@ -262,5 +294,48 @@ mod tests {
 
         assert_eq!(t.text, "AHello,\n World!\nBC\nDEF");
         assert_eq!(t.br_indexes.0, [0, 7, 15, 18]);
+    }
+
+    #[test]
+    fn insert_single_line_in_middle() {
+        let mut t = Text::new(String::from("ABC\nDEF"));
+        assert_eq!(t.br_indexes.0, [0, 3]);
+        t.update(Change::Insert {
+            at: GridIndex {
+                row: 0,
+                col: NthChar(1),
+            },
+            text: "Hello, World!".to_string(),
+        });
+
+        assert_eq!(t.text, "AHello, World!BC\nDEF");
+        assert_eq!(t.br_indexes.0, [0, 16]);
+    }
+
+    #[test]
+    fn insert_multi_byte() {
+        let mut t = Text::new("シュタインズ・ゲートは素晴らしいです。".to_string());
+        assert_eq!(t.br_indexes.0, [0]);
+        t.update(Change::Insert {
+            at: GridIndex {
+                row: 0,
+                col: NthChar(3),
+            },
+            text: "\nHello, ゲートWorld!\n".to_string(),
+        });
+
+        assert_eq!(
+            t.text,
+            "シュタ\nHello, ゲートWorld!\nインズ・ゲートは素晴らしいです。"
+        );
+        assert_eq!(t.br_indexes, [0, 9, 32]);
+        assert_eq!(
+            &t.text[t.br_indexes.0[1] + 1..t.br_indexes.0[2]],
+            "Hello, ゲートWorld!"
+        );
+        assert_eq!(
+            &t.text[t.br_indexes.0[2] + 1..],
+            "インズ・ゲートは素晴らしいです。"
+        )
     }
 }
