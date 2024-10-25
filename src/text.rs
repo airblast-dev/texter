@@ -31,6 +31,12 @@ static BR_FINDER: LazyLock<Finder> = LazyLock::new(|| Finder::new("\n"));
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct BrIndexes(Vec<usize>);
 
+impl<S: AsRef<[usize]>> PartialEq<S> for BrIndexes {
+    fn eq(&self, other: &S) -> bool {
+        self.0 == other.as_ref()
+    }
+}
+
 impl BrIndexes {
     fn new(s: &str) -> Self {
         let iter = BR_FINDER.find_iter(s.as_bytes());
@@ -115,10 +121,7 @@ impl Text {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        change::{Change, GridIndex, NthChar},
-        text::BrIndexes,
-    };
+    use crate::change::{Change, GridIndex, NthChar};
 
     use super::Text;
 
@@ -142,7 +145,7 @@ mod tests {
     #[test]
     fn delete_in_line() {
         let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
-        assert_eq!(t.br_indexes, BrIndexes([0, 13, 20, 29].to_vec()));
+        assert_eq!(t.br_indexes, [0, 13, 20, 29]);
         t.update(crate::change::Change::Delete {
             start: GridIndex {
                 row: 0,
@@ -154,14 +157,14 @@ mod tests {
             },
         });
 
-        assert_eq!(t.br_indexes, BrIndexes([0, 11, 18, 27].to_vec()));
+        assert_eq!(t.br_indexes, [0, 11, 18, 27]);
         assert_eq!(t.text, "Hel, World!\nApples\n Oranges\nPears");
     }
 
     #[test]
     fn delete_from_start() {
         let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
-        assert_eq!(t.br_indexes, BrIndexes([0, 13, 20, 29].to_vec()));
+        assert_eq!(t.br_indexes, [0, 13, 20, 29]);
         t.update(crate::change::Change::Delete {
             start: GridIndex {
                 row: 0,
@@ -173,7 +176,7 @@ mod tests {
             },
         });
 
-        assert_eq!(t.br_indexes, BrIndexes([0, 8, 15, 24].to_vec()));
+        assert_eq!(t.br_indexes, [0, 8, 15, 24]);
         assert_eq!(t.text, ", World!\nApples\n Oranges\nPears");
     }
 
@@ -191,14 +194,14 @@ mod tests {
             },
         });
 
-        assert_eq!(t.br_indexes, BrIndexes([0, 13, 20, 29].to_vec()));
+        assert_eq!(t.br_indexes, [0, 13, 20, 29]);
         assert_eq!(t.text, "Hello, World!\nApples\n Oranges\n");
     }
 
     #[test]
     fn delete_br() {
         let mut t = Text::new("Hello, World!\nBadApple\n".to_string());
-        assert_eq!(t.br_indexes, BrIndexes([0, 13, 22].to_vec()));
+        assert_eq!(t.br_indexes, [0, 13, 22]);
         t.update(Change::Delete {
             start: GridIndex {
                 row: 1,
@@ -210,14 +213,14 @@ mod tests {
             },
         });
 
-        assert_eq!(t.br_indexes, BrIndexes([0, 13].to_vec()));
+        assert_eq!(t.br_indexes, [0, 13]);
         assert_eq!(t.text, "Hello, World!\nBadApple");
     }
 
     #[test]
     fn delete_br_chain() {
         let mut t = Text::new("Hello, World!\n\n\nBadApple\n".to_string());
-        assert_eq!(t.br_indexes, BrIndexes([0, 13, 14, 15, 24].to_vec()));
+        assert_eq!(t.br_indexes, [0, 13, 14, 15, 24]);
         t.update(Change::Delete {
             start: GridIndex {
                 row: 1,
@@ -229,7 +232,7 @@ mod tests {
             },
         });
 
-        assert_eq!(t.br_indexes, BrIndexes([0, 13, 14, 23].to_vec()));
+        assert_eq!(t.br_indexes, [0, 13, 14, 23]);
         assert_eq!(t.text, "Hello, World!\n\nBadApple\n");
     }
 
@@ -246,7 +249,7 @@ mod tests {
         });
 
         assert_eq!(t.text, "Hello, World!");
-        assert_eq!(t.br_indexes, BrIndexes([0].to_vec()));
+        assert_eq!(t.br_indexes, [0]);
     }
 
     #[test]
