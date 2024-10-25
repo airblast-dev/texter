@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, hash::Hash};
 
 #[derive(Clone, Debug)]
 pub enum Change<P> {
@@ -72,6 +72,25 @@ impl ToByteIndex for NthChar {
 pub struct GridIndex<P> {
     pub row: usize,
     pub col: P,
+}
+
+impl<P> PartialEq for GridIndex<P>
+where
+    P: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.row == other.row && self.col == other.col
+    }
+}
+
+impl<P> Hash for GridIndex<P>
+where
+    P: Hash,
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        state.write_usize(self.row);
+        self.col.hash(state);
+    }
 }
 
 #[cfg(feature = "lsp-types")]
