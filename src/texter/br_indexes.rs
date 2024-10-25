@@ -17,13 +17,14 @@ impl BrIndexes {
         Self(byte_indexes)
     }
 
-    // The index to the first byte in the row.
+    /// The index to the first byte in the row.
     pub fn row_start(&self, row: usize) -> usize {
         // we increment by one if it is not zero since the index points to a break line,
         // and the first row should start at zero.
         self.0[row] + (row != 0) as usize
     }
 
+    /// Removes the indexes between start and end, not including start.
     pub fn remove_indexes(&mut self, start: usize, end: usize) {
         let start = if start != end { start + 1 } else { return };
         self.0.drain(start..end);
