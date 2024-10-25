@@ -41,6 +41,8 @@ impl BrIndexes {
 
     // The index to the first byte in the row.
     fn row_start(&self, row: usize) -> usize {
+        // we increment by one if it is not zero since the index points to a break line,
+        // and the first row should start at zero.
         self.0[row] + (row != 0) as usize
     }
 
