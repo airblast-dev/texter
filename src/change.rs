@@ -111,57 +111,64 @@ mod lsp_types {
 
 #[cfg(test)]
 mod tests {
+    use super::GridIndex;
+    use super::{NthChar, ToByteIndex};
+
+    const SAMPLE: &str = "Hello, World!";
+    const SAMPLE_MB: &str = "Secret Message: シュタインズ・ゲートは素晴らしいです。";
+
     mod nth_char {
-        use crate::change::{NthChar, ToByteIndex};
+        use super::*;
 
-        const SAMPLE: &str = "Hello, World!";
-        const SAMPLE_MB: &str = "Secret Message: シュタインズ・ゲートは素晴らしいです。";
+        mod to_byte_index {
+            use super::*;
 
-        #[test]
-        fn to_byte_index() {
-            let bi = NthChar(12).to_byte_index(SAMPLE);
-            assert_eq!(bi, 12);
-        }
+            #[test]
+            fn single_byte() {
+                let bi = NthChar(12).to_byte_index(SAMPLE);
+                assert_eq!(bi, 12);
+            }
 
-        #[test]
-        fn to_byte_index_multi_byte() {
-            let bi = NthChar(22).to_byte_index(SAMPLE_MB);
-            assert_eq!(bi, 34);
-        }
+            #[test]
+            fn multi_byte() {
+                let bi = NthChar(22).to_byte_index(SAMPLE_MB);
+                assert_eq!(bi, 34);
+            }
 
-        #[test]
-        #[should_panic]
-        fn to_byte_index_oob_char() {
-            NthChar(13).to_byte_index(SAMPLE);
-        }
+            #[test]
+            #[should_panic]
+            fn oob_char() {
+                NthChar(13).to_byte_index(SAMPLE);
+            }
 
-        #[test]
-        fn to_byte_index_exclusive() {
-            let bi = NthChar(13).to_byte_index_exclusive(SAMPLE);
-            assert_eq!(bi, 13);
-            assert_eq!(&SAMPLE[bi..], "");
-        }
+            #[test]
+            fn exclusive() {
+                let bi = NthChar(13).to_byte_index_exclusive(SAMPLE);
+                assert_eq!(bi, 13);
+                assert_eq!(&SAMPLE[bi..], "");
+            }
 
-        // TODO: FIX THIS. REALLY IMPORTANT FOR MULTIBYTE CHARACTERS.
-        //#[test]
-        //fn to_byte_index_exclusive_multi_byte() {
-        //    let bi = NthChar(35).to_byte_index_exclusive(SAMPLE);
-        //    assert_eq!(bi, 73);
-        //    assert_eq!(&SAMPLE[bi..], "");
-        //}
+            // TODO: FIX THIS. REALLY IMPORTANT FOR MULTIBYTE CHARACTERS.
+            //#[test]
+            //fn to_byte_index_exclusive_multi_byte() {
+            //    let bi = NthChar(35).to_byte_index_exclusive(SAMPLE);
+            //    assert_eq!(bi, 73);
+            //    assert_eq!(&SAMPLE[bi..], "");
+            //}
 
-        #[test]
-        #[should_panic]
-        fn to_byte_index_exclusive_oob_char() {
-            NthChar(14).to_byte_index_exclusive(SAMPLE);
+            #[test]
+            #[should_panic]
+            fn exclusive_oob_char() {
+                NthChar(14).to_byte_index_exclusive(SAMPLE);
+            }
         }
     }
 
     #[cfg(feature = "lsp-types")]
-    mod lsp_types {
+    mod lsp_types_ {
         use lsp_types::Position;
 
-        use crate::change::{GridIndex, NthChar};
+        use super::*;
 
         #[test]
         fn pos_to_grid() {
