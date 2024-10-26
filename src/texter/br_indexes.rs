@@ -24,9 +24,12 @@ impl BrIndexes {
         self.0[row] + (row != 0) as usize
     }
 
-    /// Removes the indexes between start and end, not including start.
+    /// Removes the indexes between start and end, not including start, but including end.
     pub fn remove_indexes(&mut self, start: usize, end: usize) {
-        self.0.drain(start + (start != end) as usize..end);
+        if start + 1 > end {
+            return;
+        }
+        self.0.drain(start + 1..=end);
     }
 
     /// Add an offset to all rows after the provided row number excluding itself.
@@ -38,4 +41,13 @@ impl BrIndexes {
     pub fn sub_offsets(&mut self, row: usize, by: usize) {
         self.0[row..].iter_mut().skip(1).for_each(|bi| *bi -= by);
     }
+
+    pub fn is_last_row(&self, row: usize) -> bool {
+        self.0.len() == row + 1
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // TODO: add tests
 }

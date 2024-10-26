@@ -31,27 +31,43 @@ impl Text {
     pub fn update<B: ToByteIndex + Copy>(&mut self, change: Change<GridIndex<B>>) {
         match change {
             Change::Delete { start, end } => {
-                let (start_index, end_index) = {
-                    let rs = self.br_indexes.row_start(start.row);
-                    let re = self.br_indexes.row_start(end.row);
-                    let start_s = &self.text[rs..];
-                    let end_s = &self.text[re..];
-                    (
-                        rs + start.col.to_byte_index(start_s),
-                        re + end.col.to_byte_index_exclusive(end_s),
-                    )
+                let (br_offset, drain_range) = 't: {
+                    let (rs, cs, re, ce) = {
+                        let rs = self.br_indexes.row_start(start.row);
+                        let re = self.br_indexes.row_start(end.row);
+                        let start_s = &self.text[rs..];
+                        let end_s = &self.text[re..];
+                        (
+                            rs,
+                            start.col.to_byte_index(start_s),
+                            re,
+                            end.col.to_byte_index_exclusive(end_s),
+                        )
+                    };
+                    let drain_range = rs + cs..re + ce;
+
+                    if start.row == end.row {
+                        break 't (ce - cs, drain_range);
+                    }
+
+                    let mut br_offset = re - rs;
+
+                    // if the deleted characters are on the last row, they should not be included
+                    // when updating the break line indexes
+                    if !self.br_indexes.is_last_row(end.row) {
+                        br_offset += ce;
+                    }
+
+                    // when deleting inside of the first row, br_offset can be 0.
+                    br_offset -= cs;
+
+                    (br_offset, drain_range)
                 };
 
-                // if end.col.as_raw_index() == 0 it means we are removing the trailing break line so we should also remove
-                // it from the break line indexes.
-                self.br_indexes.remove_indexes(
-                    start.row,
-                    end.row + ((end.col.as_raw_index() == 0) as usize),
-                );
-                self.br_indexes
-                    .sub_offsets(start.row, end_index - start_index);
+                self.br_indexes.remove_indexes(start.row, end.row);
+                self.br_indexes.sub_offsets(start.row, br_offset);
 
-                self.text.drain(start_index..end_index);
+                self.text.drain(drain_range);
                 debug_assert!(std::str::from_utf8(self.text.as_bytes()).is_ok());
             }
             Change::Insert { at, text } => {
@@ -77,12 +93,34 @@ mod tests {
 
     use super::Text;
 
+    // All index modifying tests must check the resulting string, end breakline indexes.
+
     mod delete {
         use super::*;
 
         #[test]
+        fn single_line() {
+            let mut t = Text::new("Hello, World!".to_string());
+            assert_eq!(t.br_indexes, [0]);
+            t.update(crate::change::Change::Delete {
+                start: GridIndex {
+                    row: 0,
+                    col: NthChar(1),
+                },
+                end: GridIndex {
+                    row: 0,
+                    col: NthChar(6),
+                },
+            });
+
+            assert_eq!(t.br_indexes, [0]);
+            assert_eq!(t.text, "H World!");
+        }
+
+        #[test]
         fn multiline() {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
+            assert_eq!(t.br_indexes, [0, 13, 20, 29]);
             t.update(crate::change::Change::Delete {
                 start: GridIndex {
                     row: 1,
@@ -94,6 +132,7 @@ mod tests {
                 },
             });
 
+            assert_eq!(t.br_indexes, [0, 13]);
             assert_eq!(t.text, "Hello, World!\nAppars");
         }
 
@@ -195,6 +234,7 @@ mod tests {
         #[test]
         fn from_end() {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
+            assert_eq!(t.br_indexes, [0, 13, 20, 29]);
             t.update(crate::change::Change::Delete {
                 start: GridIndex {
                     row: 3,
@@ -250,25 +290,32 @@ mod tests {
 
         #[test]
         fn long_text_single_byte() {
-            let mut t = Text::new("Hello, World!\nBanana\nHuman\nInteresting".to_string());
-            assert_eq!(t.br_indexes, [0, 13, 20, 26]);
+            let mut t = Text::new(
+                "Hello, World!\nBanana\nHuman\nInteresting\nSuper\nMohawk\nShrek is a great movie."
+                    .to_string(),
+            );
+            assert_eq!(t.br_indexes, [0, 13, 20, 26, 38, 44, 51]);
             t.update(Change::Delete {
                 start: GridIndex {
-                    row: 0,
+                    row: 1,
                     col: NthChar(3),
                 },
                 end: GridIndex {
-                    row: 3,
-                    col: NthChar(6),
+                    row: 5,
+                    col: NthChar(2),
                 },
             });
-
-            assert_eq!(t.text, "Helsting");
+            assert_eq!(t.br_indexes, [0, 13, 21]);
+            assert_eq!(t.text, "Hello, World!\nBanhawk\nShrek is a great movie.");
         }
+
+        // TODO: add multibyte checks
     }
 
     mod insert {
         use super::*;
+
+        // TODO: add more break line index checks
 
         #[test]
         fn into_empty() {
