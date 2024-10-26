@@ -176,7 +176,7 @@ mod tests {
 
         #[test]
         fn across_first_line() {
-            let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
+            let mut t = Text::new("Hello, World!\nApplbs\n Oranges\nPears".to_string());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
             t.update(Change::Delete {
                 start: GridIndex {
@@ -190,7 +190,7 @@ mod tests {
             });
 
             assert_eq!(t.br_indexes, [0, 3, 12]);
-            assert_eq!(t.text, "Hes\n Oranges\nPears");
+            assert_eq!(t.text, "Hbs\n Oranges\nPears");
         }
 
         #[test]
