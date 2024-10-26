@@ -98,22 +98,79 @@ mod tests {
         }
 
         #[test]
-        fn in_line() {
+        fn in_line_at_start() {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
             t.update(crate::change::Change::Delete {
                 start: GridIndex {
                     row: 0,
-                    col: NthChar(3),
+                    col: NthChar(1),
                 },
                 end: GridIndex {
                     row: 0,
-                    col: NthChar(5),
+                    col: NthChar(4),
                 },
             });
 
-            assert_eq!(t.br_indexes, [0, 11, 18, 27]);
-            assert_eq!(t.text, "Hel, World!\nApples\n Oranges\nPears");
+            assert_eq!(t.br_indexes, [0, 10, 17, 26]);
+            assert_eq!(t.text, "Ho, World!\nApples\n Oranges\nPears");
+        }
+
+        #[test]
+        fn across_first_line() {
+            let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
+            assert_eq!(t.br_indexes, [0, 13, 20, 29]);
+            t.update(crate::change::Change::Delete {
+                start: GridIndex {
+                    row: 0,
+                    col: NthChar(1),
+                },
+                end: GridIndex {
+                    row: 1,
+                    col: NthChar(4),
+                },
+            });
+
+            assert_eq!(t.br_indexes, [0, 3, 12]);
+            assert_eq!(t.text, "Hes\n Oranges\nPears");
+        }
+
+        #[test]
+        fn in_line_at_middle() {
+            let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
+            assert_eq!(t.br_indexes, [0, 13, 20, 29]);
+            t.update(crate::change::Change::Delete {
+                start: GridIndex {
+                    row: 2,
+                    col: NthChar(1),
+                },
+                end: GridIndex {
+                    row: 2,
+                    col: NthChar(4),
+                },
+            });
+
+            assert_eq!(t.br_indexes, [0, 13, 20, 26]);
+            assert_eq!(t.text, "Hello, World!\nApples\n nges\nPears");
+        }
+
+        #[test]
+        fn in_line_at_end() {
+            let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
+            assert_eq!(t.br_indexes, [0, 13, 20, 29]);
+            t.update(crate::change::Change::Delete {
+                start: GridIndex {
+                    row: 3,
+                    col: NthChar(1),
+                },
+                end: GridIndex {
+                    row: 3,
+                    col: NthChar(4),
+                },
+            });
+
+            assert_eq!(t.br_indexes, [0, 13, 20, 29]);
+            assert_eq!(t.text, "Hello, World!\nApples\n Oranges\nPs");
         }
 
         #[test]
@@ -197,11 +254,13 @@ mod tests {
             assert_eq!(t.br_indexes, [0, 13, 20, 26]);
             t.update(Change::Delete {
                 start: GridIndex {
-                    row: 0, col: NthChar(3) 
-                }, 
+                    row: 0,
+                    col: NthChar(3),
+                },
                 end: GridIndex {
-                    row: 3, col: NthChar(6) 
-                } 
+                    row: 3,
+                    col: NthChar(6),
+                },
             });
 
             assert_eq!(t.text, "Helsting");
@@ -378,7 +437,7 @@ mod tests {
                 "シュタ\nHello, ゲートWorld!\nインズ・ゲートは素晴らしいです。\nこんにちは世界！"
                     .to_string(),
             );
-    
+
             assert_eq!(t.br_indexes, [0, 9, 32, 81]);
 
             t.update(Change::Insert {
@@ -390,16 +449,28 @@ mod tests {
             });
 
             assert_eq!(
-                t.text, 
+                t.text,
                 "シュタ\nHello, ゲートWorld!\nインズ・ゲOlá, mundo!\nWaltuh Put the fork away Waltuh.ートは素晴らしいです。\nこんにちは世界！"
             );
 
             assert_eq!(t.br_indexes, [0, 9, 32, 60, 126]);
 
-            assert_eq!(&t.text[t.br_indexes.row_start(0)..t.br_indexes.0[1]], "シュタ");
-            assert_eq!(&t.text[t.br_indexes.row_start(1)..t.br_indexes.0[2]], "Hello, ゲートWorld!");
-            assert_eq!(&t.text[t.br_indexes.row_start(2)..t.br_indexes.0[3]], "インズ・ゲOlá, mundo!");
-            assert_eq!(&t.text[t.br_indexes.row_start(3)..t.br_indexes.0[4]], "Waltuh Put the fork away Waltuh.ートは素晴らしいです。");
+            assert_eq!(
+                &t.text[t.br_indexes.row_start(0)..t.br_indexes.0[1]],
+                "シュタ"
+            );
+            assert_eq!(
+                &t.text[t.br_indexes.row_start(1)..t.br_indexes.0[2]],
+                "Hello, ゲートWorld!"
+            );
+            assert_eq!(
+                &t.text[t.br_indexes.row_start(2)..t.br_indexes.0[3]],
+                "インズ・ゲOlá, mundo!"
+            );
+            assert_eq!(
+                &t.text[t.br_indexes.row_start(3)..t.br_indexes.0[4]],
+                "Waltuh Put the fork away Waltuh.ートは素晴らしいです。"
+            );
             assert_eq!(&t.text[t.br_indexes.row_start(4)..], "こんにちは世界！");
         }
     }
