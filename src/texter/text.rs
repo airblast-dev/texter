@@ -49,15 +49,15 @@ impl Text {
                     end.row + ((end.col.as_raw_index() == 0) as usize),
                 );
                 self.br_indexes
-                    .sub_offsets(start.row + 1, end_index - start_index);
+                    .sub_offsets(start.row, end_index - start_index);
 
                 self.text.drain(start_index..end_index);
             }
             Change::Insert { at, text } => {
                 let br_indexes = BR_FINDER.find_iter(text.as_bytes());
-                let start = self.br_indexes.row_start(at.row);
-                let start = &self.text[start..];
-                let insertion_index = at.col.to_byte_index_exclusive(start);
+                let start_br = self.br_indexes.row_start(at.row);
+                let start = &self.text[start_br..];
+                let insertion_index = at.col.to_byte_index_exclusive(start) + start_br;
                 self.br_indexes.add_offsets(at.row, text.len());
                 self.br_indexes.0.splice(
                     at.row + 1..at.row + 1,
@@ -248,14 +248,14 @@ mod tests {
             assert_eq!(t.br_indexes.0, [0, 3]);
             t.update(Change::Insert {
                 at: GridIndex {
-                    row: 0,
+                    row: 1,
                     col: NthChar(1),
                 },
                 text: "Hello,\n World!\n".to_string(),
             });
 
-            assert_eq!(t.text, "AHello,\n World!\nBC\nDEF");
-            assert_eq!(t.br_indexes.0, [0, 7, 15, 18]);
+            assert_eq!(t.text, "ABC\nDHello,\n World!\nEF");
+            assert_eq!(t.br_indexes.0, [0, 3, 11, 19]);
         }
 
         #[test]
