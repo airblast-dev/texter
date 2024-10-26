@@ -300,5 +300,90 @@ mod tests {
                 "インズ・ゲートは素晴らしいです。"
             )
         }
+
+        #[test]
+        fn long_text_single_byte() {
+            let mut t = Text::new(
+                "1234567\nABCD\nHELLO\nWORLD\nSOMELONGLINEFORTESTINGVARIOUSCASES\nAHAHHAHAH"
+                    .to_string(),
+            );
+
+            assert_eq!(t.br_indexes.0, [0, 7, 12, 18, 24, 59]);
+
+            t.update(Change::Insert {
+                at: GridIndex {
+                    row: 4,
+                    col: NthChar(5),
+                },
+                text: "Apple Juice\nBananaMilkshake\nWobbly".to_string(),
+            });
+
+            assert_eq!(
+                t.text,
+                "1234567\nABCD\nHELLO\nWORLD\nSOMELApple Juice\nBananaMilkshake\nWobblyONGLINEFORTESTINGVARIOUSCASES\nAHAHHAHAH"
+            );
+            assert_eq!(t.br_indexes, [0, 7, 12, 18, 24, 41, 57, 93]);
+
+            assert_eq!(
+                &t.text[t.br_indexes.row_start(0)..t.br_indexes.0[1]],
+                "1234567"
+            );
+            assert_eq!(
+                &t.text[t.br_indexes.row_start(1)..t.br_indexes.0[2]],
+                "ABCD"
+            );
+            assert_eq!(
+                &t.text[t.br_indexes.row_start(2)..t.br_indexes.0[3]],
+                "HELLO"
+            );
+            assert_eq!(
+                &t.text[t.br_indexes.row_start(3)..t.br_indexes.0[4]],
+                "WORLD"
+            );
+            assert_eq!(
+                &t.text[t.br_indexes.row_start(4)..t.br_indexes.0[5]],
+                "SOMELApple Juice"
+            );
+            assert_eq!(
+                &t.text[t.br_indexes.row_start(5)..t.br_indexes.0[6]],
+                "BananaMilkshake"
+            );
+            assert_eq!(
+                &t.text[t.br_indexes.row_start(6)..t.br_indexes.0[7]],
+                "WobblyONGLINEFORTESTINGVARIOUSCASES"
+            );
+            assert_eq!(&t.text[t.br_indexes.row_start(7)..], "AHAHHAHAH");
+        }
+
+        #[test]
+        fn long_text_multi_byte() {
+            let mut t = Text::new(
+                "シュタ\nHello, ゲートWorld!\nインズ・ゲートは素晴らしいです。\nこんにちは世界！"
+                    .to_string(),
+            );
+    
+            assert_eq!(t.br_indexes, [0, 9, 32, 81]);
+
+            t.update(Change::Insert {
+                at: GridIndex {
+                    row: 2,
+                    col: NthChar(5),
+                },
+                text: "Olá, mundo!\nWaltuh Put the fork away Waltuh.".to_string(),
+            });
+
+            assert_eq!(
+                t.text, 
+                "シュタ\nHello, ゲートWorld!\nインズ・ゲOlá, mundo!\nWaltuh Put the fork away Waltuh.ートは素晴らしいです。\nこんにちは世界！"
+            );
+
+            assert_eq!(t.br_indexes, [0, 9, 32, 60, 126]);
+
+            assert_eq!(&t.text[t.br_indexes.row_start(0)..t.br_indexes.0[1]], "シュタ");
+            assert_eq!(&t.text[t.br_indexes.row_start(1)..t.br_indexes.0[2]], "Hello, ゲートWorld!");
+            assert_eq!(&t.text[t.br_indexes.row_start(2)..t.br_indexes.0[3]], "インズ・ゲOlá, mundo!");
+            assert_eq!(&t.text[t.br_indexes.row_start(3)..t.br_indexes.0[4]], "Waltuh Put the fork away Waltuh.ートは素晴らしいです。");
+            assert_eq!(&t.text[t.br_indexes.row_start(4)..], "こんにちは世界！");
+        }
     }
 }
