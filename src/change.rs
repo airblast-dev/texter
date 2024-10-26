@@ -60,6 +60,7 @@ impl ToByteIndex for NthChar {
     }
 
     fn to_byte_index_exclusive(self, s: &str) -> usize {
+        // TODO: fix multibyte case
         if self.0 == s.len() {
             self.0
         } else {
