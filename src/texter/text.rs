@@ -51,7 +51,7 @@ impl Text {
                 self.br_indexes
                     .sub_offsets(start.row, end_index - start_index);
 
-                unsafe { self.text.as_mut_vec() }.drain(start_index..end_index);
+                self.text.drain(start_index..end_index);
                 debug_assert!(std::str::from_utf8(self.text.as_bytes()).is_ok());
             }
             Change::Insert { at, text } => {
