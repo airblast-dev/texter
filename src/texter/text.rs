@@ -173,11 +173,12 @@ mod tests {
             assert_eq!(t.br_indexes, [0, 9, 16, 25]);
             assert_eq!(t.text, "o, World!\nApples\n Oranges\nPears");
         }
+
         #[test]
         fn across_first_line() {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
-            t.update(crate::change::Change::Delete {
+            t.update(Change::Delete {
                 start: GridIndex {
                     row: 0,
                     col: NthChar(1),
@@ -196,7 +197,7 @@ mod tests {
         fn in_line_at_middle() {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
-            t.update(crate::change::Change::Delete {
+            t.update(Change::Delete {
                 start: GridIndex {
                     row: 2,
                     col: NthChar(1),
@@ -215,7 +216,7 @@ mod tests {
         fn in_line_at_end() {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
-            t.update(crate::change::Change::Delete {
+            t.update(Change::Delete {
                 start: GridIndex {
                     row: 3,
                     col: NthChar(1),
@@ -234,7 +235,7 @@ mod tests {
         fn from_start() {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
-            t.update(crate::change::Change::Delete {
+            t.update(Change::Delete {
                 start: GridIndex {
                     row: 0,
                     col: NthChar(0),
@@ -253,7 +254,7 @@ mod tests {
         fn from_end() {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
-            t.update(crate::change::Change::Delete {
+            t.update(Change::Delete {
                 start: GridIndex {
                     row: 3,
                     col: NthChar(0),
