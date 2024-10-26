@@ -30,12 +30,12 @@ impl BrIndexes {
         self.0.drain(start..end);
     }
 
-    /// Add an offset to all rows after the provided row number including itself.
+    /// Add an offset to all rows after the provided row number excluding itself.
     pub fn add_offsets(&mut self, row: usize, by: usize) {
         self.0[row..].iter_mut().skip(1).for_each(|bi| *bi += by);
     }
 
-    /// Sub an offset to all rows after the provided row number including itself.
+    /// Sub an offset to all rows after the provided row number excluding itself.
     pub fn sub_offsets(&mut self, row: usize, by: usize) {
         self.0[row..].iter_mut().skip(1).for_each(|bi| *bi -= by);
     }
