@@ -148,13 +148,12 @@ mod tests {
                 assert_eq!(&SAMPLE[bi..], "");
             }
 
-            // TODO: FIX THIS. REALLY IMPORTANT FOR MULTIBYTE CHARACTERS.
-            //#[test]
-            //fn to_byte_index_exclusive_multi_byte() {
-            //    let bi = NthChar(35).to_byte_index_exclusive(SAMPLE);
-            //    assert_eq!(bi, 73);
-            //    assert_eq!(&SAMPLE[bi..], "");
-            //}
+            #[test]
+            fn to_byte_index_exclusive_multi_byte() {
+                let bi = NthChar(35).to_byte_index_exclusive(SAMPLE);
+                assert_eq!(bi, 73);
+                assert_eq!(&SAMPLE[bi..], "");
+            }
 
             #[test]
             #[should_panic]

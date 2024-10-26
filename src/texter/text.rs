@@ -51,7 +51,8 @@ impl Text {
                 self.br_indexes
                     .sub_offsets(start.row, end_index - start_index);
 
-                self.text.drain(start_index..end_index);
+                unsafe { self.text.as_mut_vec() }.drain(start_index..end_index);
+                debug_assert!(std::str::from_utf8(self.text.as_bytes()).is_ok());
             }
             Change::Insert { at, text } => {
                 let br_indexes = BR_FINDER.find_iter(text.as_bytes());
@@ -188,6 +189,22 @@ mod tests {
 
             assert_eq!(t.br_indexes, [0, 13, 14, 23]);
             assert_eq!(t.text, "Hello, World!\n\nBadApple\n");
+        }
+
+        #[test]
+        fn long_text_single_byte() {
+            let mut t = Text::new("Hello, World!\nBanana\nHuman\nInteresting".to_string());
+            assert_eq!(t.br_indexes, [0, 13, 20, 26]);
+            t.update(Change::Delete {
+                start: GridIndex {
+                    row: 0, col: NthChar(3) 
+                }, 
+                end: GridIndex {
+                    row: 3, col: NthChar(6) 
+                } 
+            });
+
+            assert_eq!(t.text, "Helsting");
         }
     }
 
