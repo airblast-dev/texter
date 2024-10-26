@@ -137,10 +137,10 @@ mod tests {
         }
 
         #[test]
-        fn in_line_at_start() {
+        fn in_line_into_start() {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
-            t.update(crate::change::Change::Delete {
+            t.update(Change::Delete {
                 start: GridIndex {
                     row: 0,
                     col: NthChar(1),
@@ -155,6 +155,24 @@ mod tests {
             assert_eq!(t.text, "Ho, World!\nApples\n Oranges\nPears");
         }
 
+        #[test]
+        fn in_line_at_start() {
+            let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
+            assert_eq!(t.br_indexes, [0, 13, 20, 29]);
+            t.update(Change::Delete {
+                start: GridIndex {
+                    row: 0,
+                    col: NthChar(0),
+                },
+                end: GridIndex {
+                    row: 0,
+                    col: NthChar(4),
+                },
+            });
+
+            assert_eq!(t.br_indexes, [0, 9, 16, 25]);
+            assert_eq!(t.text, "o, World!\nApples\n Oranges\nPears");
+        }
         #[test]
         fn across_first_line() {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
