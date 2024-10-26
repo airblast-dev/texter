@@ -184,7 +184,7 @@ mod tests {
             t.update(Change::Delete {
                 start: GridIndex {
                     row: 0,
-                    col: NthChar(1),
+                    col: NthChar(3),
                 },
                 end: GridIndex {
                     row: 1,
@@ -192,8 +192,27 @@ mod tests {
                 },
             });
 
-            assert_eq!(t.br_indexes, [0, 3, 12]);
-            assert_eq!(t.text, "Hbs\n Oranges\nPears");
+            assert_eq!(t.br_indexes, [0, 5, 14]);
+            assert_eq!(t.text, "Helbs\n Oranges\nPears");
+        }
+
+        #[test]
+        fn across_last_line() {
+            let mut t = Text::new("Hello, World!\nApplbs\n Oranges\nPears".to_string());
+            assert_eq!(t.br_indexes, [0, 13, 20, 29]);
+            t.update(Change::Delete {
+                start: GridIndex {
+                    row: 2,
+                    col: NthChar(3),
+                },
+                end: GridIndex {
+                    row: 3,
+                    col: NthChar(2),
+                },
+            });
+
+            assert_eq!(t.br_indexes, [0, 13, 20]);
+            assert_eq!(t.text, "Hello, World!\nApplbs\n Orars");
         }
 
         #[test]
