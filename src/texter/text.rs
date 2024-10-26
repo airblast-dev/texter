@@ -46,6 +46,10 @@ impl Text {
                     };
                     let drain_range = rs + cs..re + ce;
 
+                    // this isnt just handling a common case, it also avoids an overflow below
+                    //
+                    // when subtracting with the end column, and adding the start column, things
+                    // are fine since end column > start column which means it cannot overflow.
                     if start.row == end.row {
                         break 't (ce - cs, drain_range);
                     }
@@ -58,7 +62,6 @@ impl Text {
                         br_offset += ce;
                     }
 
-                    // when deleting inside of the first row, br_offset can be 0.
                     br_offset -= cs;
 
                     (br_offset, drain_range)
