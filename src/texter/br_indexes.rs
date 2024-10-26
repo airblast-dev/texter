@@ -26,8 +26,7 @@ impl BrIndexes {
 
     /// Removes the indexes between start and end, not including start.
     pub fn remove_indexes(&mut self, start: usize, end: usize) {
-        let start = if start != end { start + 1 } else { return };
-        self.0.drain(start..end);
+        self.0.drain(start + (start != end) as usize..end);
     }
 
     /// Add an offset to all rows after the provided row number excluding itself.
