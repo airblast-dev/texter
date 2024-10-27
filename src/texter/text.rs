@@ -83,7 +83,6 @@ impl Text {
                 self.br_indexes.sub_offsets(start.row, br_offset);
 
                 self.text.drain(drain_range);
-                debug_assert!(std::str::from_utf8(self.text.as_bytes()).is_ok());
             }
             Change::Insert { at, text } => {
                 let br_indexes = BR_FINDER.find_iter(text.as_bytes());
