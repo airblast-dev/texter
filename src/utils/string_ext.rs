@@ -24,6 +24,15 @@ impl InsertManyStr for String {
     }
 }
 
+#[inline]
+pub(crate) fn fast_char_iter(b: &str) -> impl use<'_> + Iterator<Item = usize> {
+    b.as_bytes()
+        .iter()
+        .enumerate()
+        .filter(|(_, ci)| (**ci as i8) >= -0x40)
+        .map(|(bi, _)| bi)
+}
+
 #[cfg(test)]
 mod tests {
     use super::InsertManyStr;

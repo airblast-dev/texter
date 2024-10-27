@@ -1,5 +1,7 @@
 use std::{fmt::Debug, hash::Hash};
 
+use crate::utils::string_ext::fast_char_iter;
+
 #[derive(Clone, Debug)]
 pub enum Change<P> {
     Delete { start: P, end: P },
@@ -48,23 +50,30 @@ impl AsRawIndex for NthChar {
         self.0
     }
 }
+
 impl ToByteIndex for NthChar {
     fn to_byte_index(self, s: &str) -> usize {
-        s.as_bytes()
-            .iter()
-            .enumerate()
-            .filter(|(_, ci)| (**ci as i8) >= -0x40)
-            .map(|(bi, _)| bi)
+        fast_char_iter(s)
             .nth(self.0)
-            .expect("out of bounds char index")
+            .expect("char index out of bounds")
     }
 
     fn to_byte_index_exclusive(self, s: &str) -> usize {
-        // TODO: fix multibyte case
-        if self.0 == s.len() {
-            self.0
+        let mut char_count = 0;
+        let nth_byte = fast_char_iter(s).inspect(|_| char_count += 1).nth(self.0);
+        if let Some(nth_byte) = nth_byte {
+            return nth_byte;
+        }
+
+        if char_count == self.0 {
+            s.len()
         } else {
-            self.to_byte_index(s)
+            panic!(
+                "char index {} out of bounds, and {} > string.len(), {} chars found",
+                self.0,
+                self.0,
+                char_count - 1
+            )
         }
     }
 }
@@ -151,9 +160,9 @@ mod tests {
 
             #[test]
             fn to_byte_index_exclusive_multi_byte() {
-                let bi = NthChar(35).to_byte_index_exclusive(SAMPLE);
+                let bi = NthChar(35).to_byte_index_exclusive(SAMPLE_MB);
                 assert_eq!(bi, 73);
-                assert_eq!(&SAMPLE[bi..], "");
+                assert_eq!(&SAMPLE_MB[bi..], "");
             }
 
             #[test]

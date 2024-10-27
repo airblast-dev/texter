@@ -1,1 +1,1 @@
-mod string_ext;
+pub(crate) mod string_ext;
