@@ -32,37 +32,49 @@ impl Text {
         match change {
             Change::Delete { start, end } => {
                 let (br_offset, drain_range) = 't: {
-                    let (rs, cs, re, ce) = {
-                        let rs = self.br_indexes.row_start(start.row);
-                        let re = self.br_indexes.row_start(end.row);
-                        let start_s = &self.text[rs..];
-                        let end_s = &self.text[re..];
+                    let (row_start, col_start, row_end, col_end) = {
+                        let row_start_index = self.br_indexes.row_start(start.row);
+                        let row_end_index = self.br_indexes.row_start(end.row);
+                        let row_start = &self.text[row_start_index..];
+                        let col_start_index = start.col.to_byte_index(row_start);
+                        let row_end = &self.text[row_end_index..];
+                        let col_end_index = end.col.to_byte_index_exclusive(row_end);
+                        assert!(
+                            self.br_indexes
+                                .0
+                                .get(end.row + 1)
+                                .is_none_or(|next_index| col_end_index < *next_index),
+                            "provided column end exceedes the current line"
+                        );
                         (
-                            rs,
-                            start.col.to_byte_index(start_s),
-                            re,
-                            end.col.to_byte_index_exclusive(end_s),
+                            row_start_index,
+                            col_start_index,
+                            row_end_index,
+                            col_end_index,
                         )
                     };
-                    let drain_range = rs + cs..re + ce;
+                    let drain_range = row_start + col_start..row_end + col_end;
 
                     // this isnt just handling a common case, it also avoids an overflow below
                     //
                     // when subtracting with the end column, and adding the start column, things
                     // are fine since end column > start column which means it cannot overflow.
+                    //
+                    // However when the change is inside a line and the also in the last line, we
+                    // end up with a possible overflow.
                     if start.row == end.row {
-                        break 't (ce - cs, drain_range);
+                        break 't (col_end - col_start, drain_range);
                     }
 
-                    let mut br_offset = re - rs;
+                    let mut br_offset = row_end - row_start;
 
                     // if the deleted characters are on the last row, they should not be included
                     // when updating the break line indexes
                     if !self.br_indexes.is_last_row(end.row) {
-                        br_offset += ce;
+                        br_offset += col_end;
                     }
 
-                    br_offset -= cs;
+                    br_offset -= col_start;
 
                     (br_offset, drain_range)
                 };
