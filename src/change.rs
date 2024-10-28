@@ -33,11 +33,13 @@ impl AsRawIndex for ByteIndex {
     }
 }
 impl ToByteIndex for ByteIndex {
+    #[inline]
     fn to_byte_index(self, s: &str) -> usize {
         assert!(self.0 < s.len());
         self.0
     }
 
+    #[inline]
     fn to_byte_index_exclusive(self, s: &str) -> usize {
         assert!(self.0 <= s.len());
         self.0
