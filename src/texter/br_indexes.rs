@@ -1,7 +1,7 @@
 use super::BR_FINDER;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct BrIndexes(pub(crate) Vec<usize>);
+pub(crate) struct BrIndexes(pub(crate) Vec<usize>);
 
 impl<S: AsRef<[usize]>> PartialEq<S> for BrIndexes {
     fn eq(&self, other: &S) -> bool {
