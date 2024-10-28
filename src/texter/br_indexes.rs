@@ -3,6 +3,7 @@ use super::BR_FINDER;
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct BrIndexes(pub(crate) Vec<usize>);
 
+// Mainly used to remove duplicate code in tests.
 impl<S: AsRef<[usize]>> PartialEq<S> for BrIndexes {
     fn eq(&self, other: &S) -> bool {
         self.0 == other.as_ref()
