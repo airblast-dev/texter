@@ -33,19 +33,10 @@ impl Text {
             Change::Delete { start, end } => {
                 let (br_offset, drain_range) = 't: {
                     let (row_start, col_start, row_end, col_end) = {
-                        let row_start_index = self.br_indexes.row_start(start.row);
-                        let row_end_index = self.br_indexes.row_start(end.row);
-                        let row_start = &self.text[row_start_index..];
+                        let (row_start, row_start_index) = self.nth_row(start.row);
                         let col_start_index = start.col.to_byte_index(row_start);
-                        let row_end = &self.text[row_end_index..];
+                        let (row_end, row_end_index) = self.nth_row(end.row);
                         let col_end_index = end.col.to_byte_index_exclusive(row_end);
-                        assert!(
-                            self.br_indexes
-                                .0
-                                .get(end.row + 1)
-                                .is_none_or(|next_index| col_end_index < *next_index),
-                            "provided column end exceedes the current line"
-                        );
                         (
                             row_start_index,
                             col_start_index,
@@ -60,8 +51,8 @@ impl Text {
                     // when subtracting with the end column, and adding the start column, things
                     // are fine since end column > start column which means it cannot overflow.
                     //
-                    // However when the change is inside a line and the also in the last line, we
-                    // end up with a possible overflow.
+                    // However when the change is inside a line (start.row == end.row) and the row is
+                    // also in the last line, we end up with a possible overflow.
                     if start.row == end.row {
                         break 't (col_end - col_start, drain_range);
                     }
@@ -86,8 +77,7 @@ impl Text {
             }
             Change::Insert { at, text } => {
                 let br_indexes = BR_FINDER.find_iter(text.as_bytes());
-                let start_br = self.br_indexes.row_start(at.row);
-                let start = &self.text[start_br..];
+                let (start, start_br) = self.nth_row(at.row);
                 let insertion_index = at.col.to_byte_index_exclusive(start) + start_br;
                 self.br_indexes.add_offsets(at.row, text.len());
                 self.br_indexes.0.splice(
@@ -99,6 +89,19 @@ impl Text {
             _ => todo!(),
         }
     }
+
+    /// returns the nth row including the trailing line break if one if present
+    #[inline]
+    fn nth_row(&self, r: usize) -> (&str, usize) {
+        let start_index = self.br_indexes.row_start(r);
+        if self.br_indexes.is_last_row(r) {
+            return (&self.text[start_index..], start_index);
+        }
+
+        let bi = self.br_indexes.row_start(r + 1);
+
+        (&self.text[start_index..bi], start_index)
+    }
 }
 
 #[cfg(test)]
@@ -108,6 +111,17 @@ mod tests {
     use super::Text;
 
     // All index modifying tests must check the resulting string, end breakline indexes.
+
+    #[test]
+    fn nth_row() {
+        let t = Text::new("Apple\nOrange\nBanana\nCoconut\nFruity".to_string());
+        assert_eq!(t.br_indexes, [0, 5, 12, 19, 27]);
+        assert_eq!(t.nth_row(0), ("Apple\n", 0));
+        assert_eq!(t.nth_row(1), ("Orange\n", 6));
+        assert_eq!(t.nth_row(2), ("Banana\n", 13));
+        assert_eq!(t.nth_row(3), ("Coconut\n", 20));
+        assert_eq!(t.nth_row(4), ("Fruity", 28));
+    }
 
     mod delete {
         use super::*;
@@ -415,6 +429,25 @@ mod tests {
 
             assert_eq!(t.text, "ApplesHello, \nWorld!\n");
             assert_eq!(t.br_indexes, [0, 13, 20]);
+        }
+
+        #[test]
+        fn end_of_multiline() {
+            let mut t = Text::new(String::from("Apples\nBashdjad\nashdkasdh\nasdsad"));
+            assert_eq!(t.br_indexes.0, [0, 6, 15, 25]);
+            t.update(Change::Insert {
+                at: GridIndex {
+                    row: 3,
+                    col: NthChar(2),
+                },
+                text: "Hello, \nWorld!\n".to_string(),
+            });
+
+            assert_eq!(
+                t.text,
+                "Apples\nBashdjad\nashdkasdh\nasHello, \nWorld!\ndsad"
+            );
+            assert_eq!(t.br_indexes, [0, 6, 15, 25, 35, 42]);
         }
 
         #[test]
