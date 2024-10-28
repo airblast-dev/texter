@@ -1,4 +1,7 @@
-use std::fmt::{Debug, Display};
+use std::{
+    cmp::Ordering,
+    fmt::{Debug, Display},
+};
 
 use super::{br_indexes::BrIndexes, BR_FINDER};
 
@@ -87,7 +90,33 @@ impl Text {
                 self.br_indexes.add_offsets(at.row, text.len());
                 self.br_indexes.insert_indexes(at.row + 1, br_indexes);
             }
-            Change::Replace { start, end, text } => todo!(),
+            Change::Replace { start, end, text } => {
+                let (start_s, start_br) = self.nth_row(start.row);
+                let replace_start_col = start.col.to_byte_index(start_s);
+                let (end_s, end_br) = self.nth_row(end.row);
+                let replace_end_col = end.col.to_byte_index_exclusive(end_s);
+                let old_len = end_br + replace_end_col - (start_br + replace_start_col);
+                let new_len = text.len();
+
+                let start_index = start_br + replace_start_col;
+                let end_index = end_br + replace_end_col;
+
+                match old_len.cmp(&new_len) {
+                    Ordering::Less => self.br_indexes.add_offsets(start.row, new_len - old_len),
+                    Ordering::Greater => self.br_indexes.sub_offsets(start.row, old_len - new_len),
+                    Ordering::Equal => {}
+                }
+
+                self.br_indexes.replace_indexes(
+                    start.row,
+                    end.row,
+                    BR_FINDER
+                        .find_iter(text.as_bytes())
+                        .map(|bri| bri + start_index),
+                );
+
+                self.text.replace_range(start_index..end_index, &text);
+            }
         }
     }
 
@@ -657,6 +686,35 @@ mod tests {
                 "Waltuh Put the fork away Waltuh.ートは素晴らしいです。"
             );
             assert_eq!(&t.text[t.br_indexes.row_start(4)..], "こんにちは世界！");
+        }
+    }
+
+    mod replace {
+        use super::*;
+
+        #[test]
+        fn replace_in_line_middle() {
+            let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny".to_string());
+
+            assert_eq!(t.br_indexes, [0, 13, 24]);
+
+            t.update(Change::Replace {
+                start: GridIndex {
+                    row: 1,
+                    col: NthChar(3),
+                },
+                end: GridIndex {
+                    row: 1,
+                    col: NthChar(5),
+                },
+                text: "This Should replace some stuff".to_string(),
+            });
+
+            assert_eq!(
+                t.text,
+                "Hello, World!\nByeThis Should replace some stufforld!\nhahaFunny"
+            );
+            assert_eq!(t.br_indexes, [0, 13, 52]);
         }
     }
 }
