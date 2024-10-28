@@ -49,5 +49,83 @@ impl BrIndexes {
 
 #[cfg(test)]
 mod tests {
-    // TODO: add tests
+    use crate::texter::br_indexes::BrIndexes;
+
+    const S: &str = "ads\nasdas\n\n\nasdad\n\nasdasd\nasd\na\n";
+
+    #[test]
+    fn new() {
+        let br = BrIndexes::new(S);
+        assert_eq!(br.0, [0, 3, 9, 10, 11, 17, 18, 25, 29, 31]);
+    }
+
+    #[test]
+    fn row_start() {
+        let br = BrIndexes::new(S);
+        assert_eq!(br.row_start(0), 0);
+        assert_eq!(br.row_start(1), 4);
+        assert_eq!(br.row_start(2), 10);
+        assert_eq!(br.row_start(3), 11);
+        assert_eq!(br.row_start(4), 12);
+        assert_eq!(br.row_start(5), 18);
+        assert_eq!(br.row_start(6), 19);
+        assert_eq!(br.row_start(7), 26);
+        assert_eq!(br.row_start(8), 30);
+        assert_eq!(br.row_start(9), 32);
+    }
+
+    #[test]
+    #[should_panic]
+    fn row_start_oob() {
+        let br = BrIndexes::new(S);
+        br.row_start(10);
+    }
+
+    #[test]
+    fn remove_indexes_all() {
+        let mut br = BrIndexes::new(S);
+        br.remove_indexes(0, 9);
+        assert_eq!(br, [0]);
+    }
+
+    #[test]
+    fn remove_indexes_from_middle() {
+        let mut br = BrIndexes::new(S);
+        br.remove_indexes(1, 9);
+        assert_eq!(br, [0, 3]);
+
+        let mut br = BrIndexes::new(S);
+        br.remove_indexes(3, 5);
+        assert_eq!(br, [0, 3, 9, 10, 18, 25, 29, 31]);
+
+        let mut br = BrIndexes::new(S);
+        br.remove_indexes(6, 7);
+        assert_eq!(br, [0, 3, 9, 10, 11, 17, 18, 29, 31]);
+    }
+
+    #[test]
+    fn remove_indexes_same_row() {
+        let mut br = BrIndexes::new(S);
+        br.remove_indexes(0, 0);
+        assert_eq!(br, [0, 3, 9, 10, 11, 17, 18, 25, 29, 31]);
+
+        let mut br = BrIndexes::new(S);
+        br.remove_indexes(5, 5);
+        assert_eq!(br, [0, 3, 9, 10, 11, 17, 18, 25, 29, 31]);
+
+        let mut br = BrIndexes::new(S);
+        br.remove_indexes(9, 9);
+        assert_eq!(br, [0, 3, 9, 10, 11, 17, 18, 25, 29, 31]);
+    }
+
+    #[test]
+    fn remove_indexes_last_row() {
+        let mut br = BrIndexes::new(S);
+        br.remove_indexes(4, 9);
+        assert_eq!(br, [0, 3, 9, 10, 11]);
+
+        let mut br = BrIndexes::new(S);
+        br.remove_indexes(0, 9);
+        assert_eq!(br, [0]);
+    }
 }
