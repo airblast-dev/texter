@@ -52,7 +52,8 @@ impl Text {
                     // are fine since end column > start column which means it cannot overflow.
                     //
                     // However when the change is inside a line (start.row == end.row) and the row is
-                    // also in the last line, we end up with a possible overflow.
+                    // also in the last line, we end up with a possible overflow since the column
+                    // end should not be included in the offsets.
                     if start.row == end.row {
                         break 't (col_end - col_start, drain_range);
                     }
@@ -86,7 +87,7 @@ impl Text {
                 self.br_indexes.add_offsets(at.row, text.len());
                 self.br_indexes.insert_indexes(at.row + 1, br_indexes);
             }
-            _ => todo!(),
+            Change::Replace { start, end, text } => todo!(),
         }
     }
 
