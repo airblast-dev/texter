@@ -53,13 +53,19 @@ impl BrIndexes {
     /// Add an offset to all rows after the provided row number excluding itself.
     #[inline]
     pub fn add_offsets(&mut self, row: usize, by: usize) {
-        self.0[row..].iter_mut().skip(1).for_each(|bi| *bi += by);
+        if row + 1 > self.0.len() {
+            return;
+        }
+        self.0[row + 1..].iter_mut().for_each(|bi| *bi += by);
     }
 
     /// Sub an offset to all rows after the provided row number excluding itself.
     #[inline]
     pub fn sub_offsets(&mut self, row: usize, by: usize) {
-        self.0[row..].iter_mut().skip(1).for_each(|bi| *bi -= by);
+        if row + 1 > self.0.len() {
+            return;
+        }
+        self.0[row + 1..].iter_mut().for_each(|bi| *bi -= by);
     }
 
     /// Returns true if the provided row number is the last row.
