@@ -60,7 +60,7 @@ impl ToByteIndex for NthChar {
     fn to_byte_index(self, s: &str) -> usize {
         fast_char_iter(s)
             .nth(self.0)
-            .expect("char index out of bounds")
+            .expect("char index should never be out of bounds")
     }
 
     #[inline]
@@ -74,14 +74,18 @@ impl ToByteIndex for NthChar {
         if char_count == self.0 {
             s.len()
         } else {
-            panic!(
-                "char index {} out of bounds, and {} > string.len(), {} chars found",
-                self.0,
-                self.0,
-                char_count - 1
-            )
+            char_oob(char_count, self.0)
         }
     }
+}
+
+#[cold]
+#[inline(never)]
+#[track_caller]
+fn char_oob(ch_count: usize, ch_index: usize) -> ! {
+    panic!(
+        "exclusive char index {ch_index} should never more than character count ({ch_count}) + 1"
+    )
 }
 
 #[derive(Clone, Copy, Debug)]
