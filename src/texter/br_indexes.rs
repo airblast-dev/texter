@@ -43,6 +43,7 @@ impl BrIndexes {
     }
 
     pub fn is_last_row(&self, row: usize) -> bool {
+        assert!(row < self.0.len());
         self.0.len() == row + 1
     }
 }
@@ -127,5 +128,35 @@ mod tests {
         let mut br = BrIndexes::new(S);
         br.remove_indexes(0, 9);
         assert_eq!(br, [0]);
+    }
+
+    #[test]
+    fn add_offsets() {
+        let mut br = BrIndexes::new(S);
+        br.add_offsets(3, 10);
+        assert_eq!(br.0, [0, 3, 9, 10, 21, 27, 28, 35, 39, 41]);
+    }
+
+    #[test]
+    fn sub_offsets() {
+        let mut br = BrIndexes::new(S);
+        br.sub_offsets(0, 2);
+        assert_eq!(br.0, [0, 1, 7, 8, 9, 15, 16, 23, 27, 29]);
+    }
+
+    #[test]
+    fn is_last_row() {
+        let br = BrIndexes::new(S);
+        assert!(!br.is_last_row(0));
+        assert!(!br.is_last_row(1));
+        assert!(!br.is_last_row(2));
+        assert!(br.is_last_row(9));
+    }
+
+    #[test]
+    #[should_panic]
+    fn is_last_row_oob() {
+        let br = BrIndexes::new(S);
+        assert!(br.is_last_row(10));
     }
 }
