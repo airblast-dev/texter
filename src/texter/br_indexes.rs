@@ -41,6 +41,15 @@ impl BrIndexes {
         self.0.drain(start + 1..=end);
     }
 
+    pub fn replace_indexes<I: Iterator<Item = usize>>(
+        &mut self,
+        start: usize,
+        end: usize,
+        replacement: I,
+    ) {
+        self.0.splice(start + 1..=end, replacement);
+    }
+
     /// Add an offset to all rows after the provided row number excluding itself.
     #[inline]
     pub fn add_offsets(&mut self, row: usize, by: usize) {
