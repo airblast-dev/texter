@@ -54,12 +54,14 @@ impl AsRawIndex for NthChar {
 }
 
 impl ToByteIndex for NthChar {
+    #[inline]
     fn to_byte_index(self, s: &str) -> usize {
         fast_char_iter(s)
             .nth(self.0)
             .expect("char index out of bounds")
     }
 
+    #[inline]
     fn to_byte_index_exclusive(self, s: &str) -> usize {
         let mut char_count = 0;
         let nth_byte = fast_char_iter(s).inspect(|_| char_count += 1).nth(self.0);
