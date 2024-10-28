@@ -76,15 +76,15 @@ impl Text {
                 self.text.drain(drain_range);
             }
             Change::Insert { at, text } => {
-                let br_indexes = BR_FINDER.find_iter(text.as_bytes());
                 let (start, start_br) = self.nth_row(at.row);
                 let insertion_index = at.col.to_byte_index_exclusive(start) + start_br;
-                self.br_indexes.add_offsets(at.row, text.len());
-                self.br_indexes.0.splice(
-                    at.row + 1..at.row + 1,
-                    br_indexes.map(|i| i + insertion_index),
-                );
                 self.text.insert_str(insertion_index, &text);
+
+                let br_indexes = BR_FINDER
+                    .find_iter(text.as_bytes())
+                    .map(|i| i + insertion_index);
+                self.br_indexes.add_offsets(at.row, text.len());
+                self.br_indexes.insert_indexes(at.row + 1, br_indexes);
             }
             _ => todo!(),
         }

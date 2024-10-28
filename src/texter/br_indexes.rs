@@ -24,6 +24,10 @@ impl BrIndexes {
         self.0[row] + (row != 0) as usize
     }
 
+    pub fn insert_indexes<I: Iterator<Item = usize>>(&mut self, at: usize, indexes: I) {
+        self.0.splice(at..at, indexes);
+    }
+
     /// Removes the indexes between start and end, not including start, but including end.
     pub fn remove_indexes(&mut self, start: usize, end: usize) {
         if start + 1 > end {
