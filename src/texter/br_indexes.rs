@@ -46,6 +46,7 @@ impl BrIndexes {
         self.0[row..].iter_mut().skip(1).for_each(|bi| *bi -= by);
     }
 
+    /// Returns true if the provided row number is the last row.
     pub fn is_last_row(&self, row: usize) -> bool {
         assert!(row < self.0.len());
         self.0.len() == row + 1
