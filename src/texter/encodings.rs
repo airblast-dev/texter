@@ -2,15 +2,6 @@ pub mod utf8 {
 
     use super::char_oob;
 
-    #[inline]
-    pub(crate) fn fast_char_iter(s: &str) -> impl use<'_> + Iterator<Item = usize> {
-        s.as_bytes()
-            .iter()
-            .enumerate()
-            .filter(|(_, ci)| (**ci as i8) >= -0x40)
-            .map(|(bi, _)| bi)
-    }
-
     /// Finds the byte index for the
     pub fn utf8(s: &str, nth: usize) -> usize {
         if s.len() <= nth {

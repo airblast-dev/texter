@@ -1,6 +1,4 @@
-use std::{fmt::Debug, hash::Hash};
-
-use crate::utils::string_ext::fast_char_iter;
+use std::fmt::Debug;
 
 #[derive(Clone, Debug)]
 pub enum Change {
