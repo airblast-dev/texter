@@ -3,14 +3,20 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use super::{br_indexes::BrIndexes, BR_FINDER};
+use super::{
+    br_indexes::BrIndexes,
+    encodings::utf8::{utf8, utf8_exclusive},
+    BR_FINDER,
+};
 
-use crate::change::{Change, GridIndex, ToByteIndex};
+use crate::change::{Change, GridIndex};
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Text {
     br_indexes: BrIndexes,
     text: String,
+    pos_converter: fn(&str, usize) -> usize,
+    pos_converter_exc: fn(&str, usize) -> usize,
 }
 
 impl Debug for Text {
@@ -26,20 +32,25 @@ impl Display for Text {
 }
 
 impl Text {
-    pub fn new(text: String) -> Self {
+    pub fn new(text: String) -> Text {
         let br_indexes = BrIndexes::new(&text);
-        Self { text, br_indexes }
+        Text {
+            text,
+            br_indexes,
+            pos_converter: utf8,
+            pos_converter_exc: utf8_exclusive,
+        }
     }
 
-    pub fn update<B: ToByteIndex + Copy>(&mut self, change: Change<GridIndex<B>>) {
+    pub fn update(&mut self, change: Change) {
         match change {
             Change::Delete { start, end } => {
                 let (br_offset, drain_range) = 't: {
                     let (row_start, col_start, row_end, col_end) = {
                         let (row_start, row_start_index) = self.nth_row(start.row);
-                        let col_start_index = start.col.to_byte_index(row_start);
+                        let col_start_index = (self.pos_converter)(row_start, start.col);
                         let (row_end, row_end_index) = self.nth_row(end.row);
-                        let col_end_index = end.col.to_byte_index_exclusive(row_end);
+                        let col_end_index = (self.pos_converter_exc)(row_end, end.col);
                         (
                             row_start_index,
                             col_start_index,
@@ -81,7 +92,7 @@ impl Text {
             }
             Change::Insert { at, text } => {
                 let (start, start_br) = self.nth_row(at.row);
-                let insertion_index = at.col.to_byte_index_exclusive(start) + start_br;
+                let insertion_index = (self.pos_converter_exc)(start, at.col) + start_br;
                 self.text.insert_str(insertion_index, &text);
 
                 let br_indexes = BR_FINDER
@@ -92,9 +103,9 @@ impl Text {
             }
             Change::Replace { start, end, text } => {
                 let (start_s, start_br) = self.nth_row(start.row);
-                let replace_start_col = start.col.to_byte_index(start_s);
+                let replace_start_col = (self.pos_converter)(start_s, start.col);
                 let (end_s, end_br) = self.nth_row(end.row);
-                let replace_end_col = end.col.to_byte_index_exclusive(end_s);
+                let replace_end_col = (self.pos_converter_exc)(end_s, end.col);
                 let old_len = end_br + replace_end_col - (start_br + replace_start_col);
                 let new_len = text.len();
 
@@ -136,7 +147,7 @@ impl Text {
 
 #[cfg(test)]
 mod tests {
-    use crate::change::{Change, GridIndex, NthChar};
+    use crate::change::{Change, GridIndex};
 
     use super::Text;
 
@@ -161,14 +172,8 @@ mod tests {
             let mut t = Text::new("Hello, World!".to_string());
             assert_eq!(t.br_indexes, [0]);
             t.update(crate::change::Change::Delete {
-                start: GridIndex {
-                    row: 0,
-                    col: NthChar(1),
-                },
-                end: GridIndex {
-                    row: 0,
-                    col: NthChar(6),
-                },
+                start: GridIndex { row: 0, col: 1 },
+                end: GridIndex { row: 0, col: 6 },
             });
 
             assert_eq!(t.br_indexes, [0]);
@@ -180,14 +185,8 @@ mod tests {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
             t.update(crate::change::Change::Delete {
-                start: GridIndex {
-                    row: 1,
-                    col: NthChar(3),
-                },
-                end: GridIndex {
-                    row: 3,
-                    col: NthChar(2),
-                },
+                start: GridIndex { row: 1, col: 3 },
+                end: GridIndex { row: 3, col: 2 },
             });
 
             assert_eq!(t.br_indexes, [0, 13]);
@@ -199,14 +198,8 @@ mod tests {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
             t.update(Change::Delete {
-                start: GridIndex {
-                    row: 0,
-                    col: NthChar(1),
-                },
-                end: GridIndex {
-                    row: 0,
-                    col: NthChar(4),
-                },
+                start: GridIndex { row: 0, col: 1 },
+                end: GridIndex { row: 0, col: 4 },
             });
 
             assert_eq!(t.br_indexes, [0, 10, 17, 26]);
@@ -218,14 +211,8 @@ mod tests {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
             t.update(Change::Delete {
-                start: GridIndex {
-                    row: 0,
-                    col: NthChar(0),
-                },
-                end: GridIndex {
-                    row: 0,
-                    col: NthChar(4),
-                },
+                start: GridIndex { row: 0, col: 0 },
+                end: GridIndex { row: 0, col: 4 },
             });
 
             assert_eq!(t.br_indexes, [0, 9, 16, 25]);
@@ -237,14 +224,8 @@ mod tests {
             let mut t = Text::new("Hello, World!\nApplbs\n Oranges\nPears".to_string());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
             t.update(Change::Delete {
-                start: GridIndex {
-                    row: 0,
-                    col: NthChar(3),
-                },
-                end: GridIndex {
-                    row: 1,
-                    col: NthChar(4),
-                },
+                start: GridIndex { row: 0, col: 3 },
+                end: GridIndex { row: 1, col: 4 },
             });
 
             assert_eq!(t.br_indexes, [0, 5, 14]);
@@ -256,14 +237,8 @@ mod tests {
             let mut t = Text::new("Hello, World!\nApplbs\n Oranges\nPears".to_string());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
             t.update(Change::Delete {
-                start: GridIndex {
-                    row: 2,
-                    col: NthChar(3),
-                },
-                end: GridIndex {
-                    row: 3,
-                    col: NthChar(2),
-                },
+                start: GridIndex { row: 2, col: 3 },
+                end: GridIndex { row: 3, col: 2 },
             });
 
             assert_eq!(t.br_indexes, [0, 13, 20]);
@@ -275,14 +250,8 @@ mod tests {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
             t.update(Change::Delete {
-                start: GridIndex {
-                    row: 2,
-                    col: NthChar(1),
-                },
-                end: GridIndex {
-                    row: 2,
-                    col: NthChar(4),
-                },
+                start: GridIndex { row: 2, col: 1 },
+                end: GridIndex { row: 2, col: 4 },
             });
 
             assert_eq!(t.br_indexes, [0, 13, 20, 26]);
@@ -294,14 +263,8 @@ mod tests {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
             t.update(Change::Delete {
-                start: GridIndex {
-                    row: 3,
-                    col: NthChar(1),
-                },
-                end: GridIndex {
-                    row: 3,
-                    col: NthChar(4),
-                },
+                start: GridIndex { row: 3, col: 1 },
+                end: GridIndex { row: 3, col: 4 },
             });
 
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
@@ -313,14 +276,8 @@ mod tests {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
             t.update(Change::Delete {
-                start: GridIndex {
-                    row: 0,
-                    col: NthChar(0),
-                },
-                end: GridIndex {
-                    row: 0,
-                    col: NthChar(5),
-                },
+                start: GridIndex { row: 0, col: 0 },
+                end: GridIndex { row: 0, col: 5 },
             });
 
             assert_eq!(t.br_indexes, [0, 8, 15, 24]);
@@ -332,14 +289,8 @@ mod tests {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".to_string());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
             t.update(Change::Delete {
-                start: GridIndex {
-                    row: 3,
-                    col: NthChar(0),
-                },
-                end: GridIndex {
-                    row: 3,
-                    col: NthChar(5),
-                },
+                start: GridIndex { row: 3, col: 0 },
+                end: GridIndex { row: 3, col: 5 },
             });
 
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
@@ -351,14 +302,8 @@ mod tests {
             let mut t = Text::new("Hello, World!\nBadApple\n".to_string());
             assert_eq!(t.br_indexes, [0, 13, 22]);
             t.update(Change::Delete {
-                start: GridIndex {
-                    row: 1,
-                    col: NthChar(8),
-                },
-                end: GridIndex {
-                    row: 2,
-                    col: NthChar(0),
-                },
+                start: GridIndex { row: 1, col: 8 },
+                end: GridIndex { row: 2, col: 0 },
             });
 
             assert_eq!(t.br_indexes, [0, 13]);
@@ -370,14 +315,8 @@ mod tests {
             let mut t = Text::new("Hello, World!\n\n\nBadApple\n".to_string());
             assert_eq!(t.br_indexes, [0, 13, 14, 15, 24]);
             t.update(Change::Delete {
-                start: GridIndex {
-                    row: 1,
-                    col: NthChar(0),
-                },
-                end: GridIndex {
-                    row: 2,
-                    col: NthChar(0),
-                },
+                start: GridIndex { row: 1, col: 0 },
+                end: GridIndex { row: 2, col: 0 },
             });
 
             assert_eq!(t.br_indexes, [0, 13, 14, 23]);
@@ -392,14 +331,8 @@ mod tests {
             );
             assert_eq!(t.br_indexes, [0, 13, 20, 26, 38, 44, 51]);
             t.update(Change::Delete {
-                start: GridIndex {
-                    row: 1,
-                    col: NthChar(3),
-                },
-                end: GridIndex {
-                    row: 5,
-                    col: NthChar(2),
-                },
+                start: GridIndex { row: 1, col: 3 },
+                end: GridIndex { row: 5, col: 2 },
             });
             assert_eq!(t.br_indexes, [0, 13, 21]);
             assert_eq!(t.text, "Hello, World!\nBanhawk\nShrek is a great movie.");
@@ -430,14 +363,8 @@ mod tests {
                 [0, 81, 148, 230, 274, 275, 342, 400, 479, 573, 574, 632, 693, 796]
             );
             t.update(Change::Delete {
-                start: GridIndex {
-                    row: 1,
-                    col: NthChar(3),
-                },
-                end: GridIndex {
-                    row: 5,
-                    col: NthChar(2),
-                },
+                start: GridIndex { row: 1, col: 3 },
+                end: GridIndex { row: 5, col: 2 },
             });
             assert_eq!(
                 t.br_indexes,
@@ -470,10 +397,7 @@ mod tests {
             let mut t = Text::new(String::new());
             assert_eq!(t.br_indexes.0, [0]);
             t.update(Change::Insert {
-                at: GridIndex {
-                    row: 0,
-                    col: NthChar(0),
-                },
+                at: GridIndex { row: 0, col: 0 },
                 text: "Hello, World!".to_string(),
             });
 
@@ -486,10 +410,7 @@ mod tests {
             let mut t = Text::new(String::from("Apples"));
             assert_eq!(t.br_indexes.0, [0]);
             t.update(Change::Insert {
-                at: GridIndex {
-                    row: 0,
-                    col: NthChar(0),
-                },
+                at: GridIndex { row: 0, col: 0 },
                 text: "Hello, World!".to_string(),
             });
 
@@ -502,10 +423,7 @@ mod tests {
             let mut t = Text::new(String::from("Apples"));
             assert_eq!(t.br_indexes.0, [0]);
             t.update(Change::Insert {
-                at: GridIndex {
-                    row: 0,
-                    col: NthChar(6),
-                },
+                at: GridIndex { row: 0, col: 6 },
                 text: "Hello, \nWorld!\n".to_string(),
             });
 
@@ -518,10 +436,7 @@ mod tests {
             let mut t = Text::new(String::from("Apples\nBashdjad\nashdkasdh\nasdsad"));
             assert_eq!(t.br_indexes.0, [0, 6, 15, 25]);
             t.update(Change::Insert {
-                at: GridIndex {
-                    row: 3,
-                    col: NthChar(2),
-                },
+                at: GridIndex { row: 3, col: 2 },
                 text: "Hello, \nWorld!\n".to_string(),
             });
 
@@ -537,10 +452,7 @@ mod tests {
             let mut t = Text::new(String::from("ABC\nDEF"));
             assert_eq!(t.br_indexes.0, [0, 3]);
             t.update(Change::Insert {
-                at: GridIndex {
-                    row: 1,
-                    col: NthChar(1),
-                },
+                at: GridIndex { row: 1, col: 1 },
                 text: "Hello,\n World!\n".to_string(),
             });
 
@@ -553,10 +465,7 @@ mod tests {
             let mut t = Text::new(String::from("ABC\nDEF"));
             assert_eq!(t.br_indexes.0, [0, 3]);
             t.update(Change::Insert {
-                at: GridIndex {
-                    row: 0,
-                    col: NthChar(1),
-                },
+                at: GridIndex { row: 0, col: 1 },
                 text: "Hello, World!".to_string(),
             });
 
@@ -569,10 +478,7 @@ mod tests {
             let mut t = Text::new("シュタインズ・ゲートは素晴らしいです。".to_string());
             assert_eq!(t.br_indexes.0, [0]);
             t.update(Change::Insert {
-                at: GridIndex {
-                    row: 0,
-                    col: NthChar(3),
-                },
+                at: GridIndex { row: 0, col: 3 },
                 text: "\nHello, ゲートWorld!\n".to_string(),
             });
 
@@ -601,10 +507,7 @@ mod tests {
             assert_eq!(t.br_indexes.0, [0, 7, 12, 18, 24, 59]);
 
             t.update(Change::Insert {
-                at: GridIndex {
-                    row: 4,
-                    col: NthChar(5),
-                },
+                at: GridIndex { row: 4, col: 5 },
                 text: "Apple Juice\nBananaMilkshake\nWobbly".to_string(),
             });
 
@@ -655,10 +558,7 @@ mod tests {
             assert_eq!(t.br_indexes, [0, 9, 32, 81]);
 
             t.update(Change::Insert {
-                at: GridIndex {
-                    row: 2,
-                    col: NthChar(5),
-                },
+                at: GridIndex { row: 2, col: 5 },
                 text: "Olá, mundo!\nWaltuh Put the fork away Waltuh.".to_string(),
             });
 
@@ -693,20 +593,33 @@ mod tests {
         use super::*;
 
         #[test]
+        fn replace_in_line_start() {
+            let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny".to_string());
+
+            assert_eq!(t.br_indexes, [0, 13, 24]);
+
+            t.update(Change::Replace {
+                start: GridIndex { row: 0, col: 3 },
+                end: GridIndex { row: 0, col: 5 },
+                text: "This Should replace some stuff".to_string(),
+            });
+
+            assert_eq!(
+                t.text,
+                "HelThis Should replace some stuff, World!\nBye World!\nhahaFunny"
+            );
+            assert_eq!(t.br_indexes, [0, 41, 52]);
+        }
+
+        #[test]
         fn replace_in_line_middle() {
             let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny".to_string());
 
             assert_eq!(t.br_indexes, [0, 13, 24]);
 
             t.update(Change::Replace {
-                start: GridIndex {
-                    row: 1,
-                    col: NthChar(3),
-                },
-                end: GridIndex {
-                    row: 1,
-                    col: NthChar(5),
-                },
+                start: GridIndex { row: 1, col: 3 },
+                end: GridIndex { row: 1, col: 5 },
                 text: "This Should replace some stuff".to_string(),
             });
 
