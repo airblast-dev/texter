@@ -12,7 +12,7 @@ use super::{
     BR_FINDER,
 };
 
-use crate::change::{Change, GridIndex};
+use crate::change::Change;
 
 #[derive(Clone)]
 pub struct Text {
@@ -35,6 +35,7 @@ impl Display for Text {
 }
 
 impl Text {
+    /// Creates a new [`Text`] for UTF8 encoded positions.
     pub fn new(text: String) -> Self {
         let br_indexes = BrIndexes::new(&text);
         Text {
@@ -45,6 +46,7 @@ impl Text {
         }
     }
 
+    /// Creates a new [`Text`] for UTF16 encoded positions.
     pub fn new_utf16(text: String) -> Self {
         let br_indexes = BrIndexes::new(&text);
         Text {
@@ -55,7 +57,8 @@ impl Text {
         }
     }
 
-    pub fn update(&mut self, change: Change) {
+    pub fn update<C: Into<Change>>(&mut self, change: C) {
+        let change = change.into();
         match change {
             Change::Delete { start, end } => {
                 let (br_offset, drain_range) = 't: {

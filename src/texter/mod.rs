@@ -1,6 +1,6 @@
 pub mod br_indexes;
 mod encodings;
-mod text;
+pub mod text;
 
 use memchr::memmem::Finder;
 use std::sync::LazyLock;
