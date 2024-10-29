@@ -5,7 +5,10 @@ use std::{
 
 use super::{
     br_indexes::BrIndexes,
-    encodings::utf8::{utf8, utf8_exclusive},
+    encodings::{
+        utf16::{utf16, utf16_exclusive},
+        utf8::{utf8, utf8_exclusive},
+    },
     BR_FINDER,
 };
 
@@ -32,13 +35,23 @@ impl Display for Text {
 }
 
 impl Text {
-    pub fn new(text: String) -> Text {
+    pub fn new(text: String) -> Self {
         let br_indexes = BrIndexes::new(&text);
         Text {
             text,
             br_indexes,
             pos_converter: utf8,
             pos_converter_exc: utf8_exclusive,
+        }
+    }
+
+    pub fn new_utf16(text: String) -> Self {
+        let br_indexes = BrIndexes::new(&text);
+        Text {
+            text,
+            br_indexes,
+            pos_converter: utf16,
+            pos_converter_exc: utf16_exclusive,
         }
     }
 
