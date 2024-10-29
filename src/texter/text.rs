@@ -380,7 +380,7 @@ mod tests {
             );
             t.update(Change::Delete {
                 start: GridIndex { row: 1, col: 3 },
-                end: GridIndex { row: 5, col: 2 },
+                end: GridIndex { row: 5, col: 0 },
             });
             assert_eq!(
                 t.br_indexes,
@@ -390,7 +390,7 @@ mod tests {
                 t.text,
                 "\
 誰かがかつて世界が私をロールつもりである私に言いました
-私は小、年が来て起動し、彼らが来て停止しません
+私さて、年が来て起動し、彼らが来て停止しません
 ルールに供給され、私は地上走行をヒット
 楽しみのために生きることはない意味がありませんでした
 あなたの脳は、スマート取得しますが、あなたの頭はダム取得します
@@ -500,16 +500,16 @@ mod tests {
 
             assert_eq!(
                 t.text,
-                "シュタ\nHello, ゲートWorld!\nインズ・ゲートは素晴らしいです。"
+                "シ\nHello, ゲートWorld!\nュタインズ・ゲートは素晴らしいです。"
             );
-            assert_eq!(t.br_indexes, [0, 9, 32]);
+            assert_eq!(t.br_indexes, [0, 3, 26]);
             assert_eq!(
                 &t.text[t.br_indexes.0[1] + 1..t.br_indexes.0[2]],
                 "Hello, ゲートWorld!"
             );
             assert_eq!(
                 &t.text[t.br_indexes.0[2] + 1..],
-                "インズ・ゲートは素晴らしいです。"
+                "ュタインズ・ゲートは素晴らしいです。"
             )
         }
 
@@ -574,16 +574,16 @@ mod tests {
             assert_eq!(t.br_indexes, [0, 9, 32, 81]);
 
             t.update(Change::Insert {
-                at: GridIndex { row: 2, col: 5 },
+                at: GridIndex { row: 2, col: 3 },
                 text: "Olá, mundo!\nWaltuh Put the fork away Waltuh.".to_string(),
             });
 
             assert_eq!(
                 t.text,
-                "シュタ\nHello, ゲートWorld!\nインズ・ゲOlá, mundo!\nWaltuh Put the fork away Waltuh.ートは素晴らしいです。\nこんにちは世界！"
+                "シュタ\nHello, ゲートWorld!\nイOlá, mundo!\nWaltuh Put the fork away Waltuh.ンズ・ゲートは素晴らしいです。\nこんにちは世界！"
             );
 
-            assert_eq!(t.br_indexes, [0, 9, 32, 60, 126]);
+            assert_eq!(t.br_indexes, [0, 9, 32, 48, 126]);
 
             assert_eq!(
                 &t.text[t.br_indexes.row_start(0)..t.br_indexes.0[1]],
@@ -595,11 +595,11 @@ mod tests {
             );
             assert_eq!(
                 &t.text[t.br_indexes.row_start(2)..t.br_indexes.0[3]],
-                "インズ・ゲOlá, mundo!"
+                "イOlá, mundo!"
             );
             assert_eq!(
                 &t.text[t.br_indexes.row_start(3)..t.br_indexes.0[4]],
-                "Waltuh Put the fork away Waltuh.ートは素晴らしいです。"
+                "Waltuh Put the fork away Waltuh.ンズ・ゲートは素晴らしいです。"
             );
             assert_eq!(&t.text[t.br_indexes.row_start(4)..], "こんにちは世界！");
         }

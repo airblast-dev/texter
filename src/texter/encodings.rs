@@ -10,26 +10,20 @@ pub mod utf8 {
             .filter(|(_, ci)| (**ci as i8) >= -0x40)
             .map(|(bi, _)| bi)
     }
+
+    /// Finds the byte index for the
     pub fn utf8(s: &str, nth: usize) -> usize {
-        if let Some(i) = fast_char_iter(s).nth(nth) {
-            i
-        } else {
-            char_oob()
-        }
+        if s.len() <= nth {
+            char_oob();
+        };
+        nth
     }
 
     pub fn utf8_exclusive(s: &str, nth: usize) -> usize {
-        let mut char_count = 0;
-        let nth_byte = fast_char_iter(s).inspect(|_| char_count += 1).nth(nth);
-        if let Some(nth_byte) = nth_byte {
-            return nth_byte;
-        }
-
-        if char_count == nth {
-            s.len()
-        } else {
-            char_oob()
-        }
+        if s.len() < nth {
+            char_oob();
+        };
+        nth
     }
 }
 
@@ -38,6 +32,7 @@ pub mod utf16 {
 
     use super::char_oob_ex;
 
+    /// Converts UTF16 indexes to UTF8 indexes.
     pub fn utf16(s: &str, nth: usize) -> usize {
         let mut total_code_points = 0;
         dbg!(nth);
@@ -60,6 +55,7 @@ pub mod utf16 {
         char_oob()
     }
 
+    /// Converts UTF16 indexes to UTF8 indexes but also allows code point + 1 to be used in range operations.
     pub fn utf16_exclusive(s: &str, nth: usize) -> usize {
         let mut total_code_points = 0;
         if nth == 0 && s.is_empty() {
