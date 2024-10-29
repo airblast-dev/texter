@@ -11,9 +11,11 @@ pub mod utf8 {
             .map(|(bi, _)| bi)
     }
     pub fn utf8(s: &str, nth: usize) -> usize {
-        fast_char_iter(s)
-            .nth(nth)
-            .expect("Char index should never be out of bounds")
+        if let Some(i) = fast_char_iter(s).nth(nth) {
+            i
+        } else {
+            char_oob()
+        }
     }
 
     pub fn utf8_exclusive(s: &str, nth: usize) -> usize {
@@ -26,58 +28,74 @@ pub mod utf8 {
         if char_count == nth {
             s.len()
         } else {
-            char_oob(char_count, nth)
+            char_oob()
         }
     }
 }
 
 pub mod utf16 {
+    use crate::texter::encodings::char_oob;
+
+    use super::char_oob_ex;
 
     pub fn utf16(s: &str, nth: usize) -> usize {
         let mut total_code_points = 0;
-        let i = s
+        dbg!(nth);
+        if nth == 0 && s.is_empty() {
+            return 0;
+        }
+        for (utf8_index, utf16_len, utf8_len) in s
             .char_indices()
-            .take_while(|(_, c)| {
-                total_code_points += c.len_utf16();
-                if total_code_points > nth {
-                    panic!("we should never receive positions between characters");
-                }
-                total_code_points <= nth
-            })
-            .map(|(i, _)| i)
-            .last()
-            .expect("UTF16 position out of bounds");
+            .map(|(i, c)| (i, c.len_utf16(), c.len_utf8()))
+        {
+            total_code_points += utf16_len;
+            if total_code_points == nth {
+                return utf8_index + utf8_len;
+            }
+            if total_code_points > nth {
+                panic!("UTF16 position should never be between code points");
+            }
+        }
 
-        i
+        char_oob()
     }
 
     pub fn utf16_exclusive(s: &str, nth: usize) -> usize {
-        if nth == s.encode_utf16().count() {
-            return s.len();
-        }
         let mut total_code_points = 0;
-        let i = s
+        if nth == 0 && s.is_empty() {
+            return 0;
+        }
+        for (utf8_index, utf16_len, utf8_len) in s
             .char_indices()
-            .take_while(|(_, c)| {
-                total_code_points += c.len_utf16();
-                if total_code_points > nth {
-                    panic!("we should never receive positions between characters");
-                }
-                total_code_points <= nth
-            })
-            .map(|(i, _)| i)
-            .last()
-            .expect("UTF16 position out of bounds");
+            .map(|(i, c)| (i, c.len_utf16(), c.len_utf8()))
+        {
+            total_code_points += utf16_len;
+            if total_code_points == nth {
+                return utf8_index + utf8_len;
+            }
+            if total_code_points > nth {
+                panic!("UTF16 position should never be between code points");
+            }
+        }
 
-        i
+        if total_code_points + 1 == nth {
+            return nth;
+        }
+
+        char_oob_ex()
     }
 }
 
 #[cold]
 #[inline(never)]
 #[track_caller]
-fn char_oob(ch_count: usize, ch_index: usize) -> ! {
-    panic!(
-        "exclusive char index {ch_index} should never more than character count ({ch_count}) + 1"
-    )
+fn char_oob() -> ! {
+    panic!("byte index should never more than byte count")
+}
+
+#[cold]
+#[inline(never)]
+#[track_caller]
+fn char_oob_ex() -> ! {
+    panic!("exclusive byte index should never more than byte count + 1")
 }
