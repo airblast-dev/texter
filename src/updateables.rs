@@ -27,13 +27,13 @@ pub enum ChangeContext<'a> {
 
 pub struct UpdateContext<'a> {
     /// A context change that is being used to update the [`Text`].
-    change: ChangeContext<'a>,
+    pub change: ChangeContext<'a>,
     /// The new breakline positions.
-    breaklines: &'a BrIndexes,
+    pub breaklines: &'a BrIndexes,
     /// The old breakline positions.
-    old_breaklines: &'a BrIndexes,
+    pub old_breaklines: &'a BrIndexes,
     /// The old string.
-    old_str: &'a str,
+    pub old_str: &'a str,
 }
 
 pub trait Updateable {

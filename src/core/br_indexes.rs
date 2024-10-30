@@ -1,12 +1,24 @@
+use std::ops::Index;
+
 use super::BR_FINDER;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct BrIndexes(pub(crate) Vec<usize>);
+pub struct BrIndexes(pub(crate) Vec<usize>);
 
 // Mainly used to remove duplicate code in tests.
 impl<S: AsRef<[usize]>> PartialEq<S> for BrIndexes {
     fn eq(&self, other: &S) -> bool {
         self.0 == other.as_ref()
+    }
+}
+
+impl<T> Index<T> for BrIndexes
+where
+    [usize]: Index<T>,
+{
+    type Output = <[usize] as Index<T>>::Output;
+    fn index(&self, index: T) -> &Self::Output {
+        &self.0.as_slice()[index]
     }
 }
 
@@ -31,37 +43,41 @@ impl BrIndexes {
     /// Inserts the provided indexes at the provided position.
     ///
     /// Returns a slice of the inserted indexes.
-    pub fn insert_indexes<I: Iterator<Item = usize>>(&mut self, at: usize, indexes: I) -> &[usize] {
+    pub(crate) fn insert_indexes<I: Iterator<Item = usize>>(
+        &mut self,
+        at: usize,
+        indexes: I,
+    ) -> std::ops::Range<usize> {
         let mut i = 0;
         self.0.splice(at..at, indexes.inspect(|_| i += 1));
-        &self.0[at..at + i]
+        at..at + i
     }
 
     /// Removes the indexes between start and end, not including start, but including end.
     #[inline]
-    pub fn remove_indexes(&mut self, start: usize, end: usize) {
+    pub(crate) fn remove_indexes(&mut self, start: usize, end: usize) {
         if start + 1 > end {
             return;
         }
         self.0.drain(start + 1..=end);
     }
 
-    pub fn replace_indexes<I: Iterator<Item = usize>>(
+    pub(crate) fn replace_indexes<I: Iterator<Item = usize>>(
         &mut self,
         start: usize,
         end: usize,
         replacement: I,
-    ) -> &[usize] {
+    ) -> std::ops::Range<usize> {
         let mut insert_count = 0;
         self.0
             .splice(start + 1..=end, replacement.inspect(|_| insert_count += 1));
 
-        &self.0[start + 1..start + 1 + insert_count]
+        start + 1..start + 1 + insert_count
     }
 
     /// Add an offset to all rows after the provided row number excluding itself.
     #[inline]
-    pub fn add_offsets(&mut self, row: usize, by: usize) {
+    pub(crate) fn add_offsets(&mut self, row: usize, by: usize) {
         if row + 1 > self.0.len() {
             return;
         }
@@ -70,7 +86,7 @@ impl BrIndexes {
 
     /// Sub an offset to all rows after the provided row number excluding itself.
     #[inline]
-    pub fn sub_offsets(&mut self, row: usize, by: usize) {
+    pub(crate) fn sub_offsets(&mut self, row: usize, by: usize) {
         if row + 1 > self.0.len() {
             return;
         }
