@@ -28,8 +28,13 @@ impl BrIndexes {
     }
 
     #[inline]
-    pub fn insert_indexes<I: Iterator<Item = usize>>(&mut self, at: usize, indexes: I) {
-        self.0.splice(at..at, indexes);
+    /// Inserts the provided indexes at the provided position.
+    ///
+    /// Returns a slice of the inserted indexes.
+    pub fn insert_indexes<I: Iterator<Item = usize>>(&mut self, at: usize, indexes: I) -> &[usize] {
+        let mut i = 0;
+        self.0.splice(at..at, indexes.inspect(|_| i += 1));
+        &self.0[at..at + i]
     }
 
     /// Removes the indexes between start and end, not including start, but including end.
@@ -46,8 +51,14 @@ impl BrIndexes {
         start: usize,
         end: usize,
         replacement: I,
-    ) {
-        self.0.splice(start + 1..=end, replacement);
+    ) -> &[usize] {
+        let mut insert_count = 0;
+        let old_len = self
+            .0
+            .splice(start + 1..=end, replacement.inspect(|_| insert_count += 1))
+            .len();
+
+        &self.0[start + 1..start + 1 + insert_count]
     }
 
     /// Add an offset to all rows after the provided row number excluding itself.
@@ -74,11 +85,19 @@ impl BrIndexes {
         assert!(row < self.0.len());
         self.0.len() == row + 1
     }
+
+    pub fn row_count(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn last_row(&self) -> usize {
+        self.row_start(self.row_count() - 1)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::texter::br_indexes::BrIndexes;
+    use crate::core::br_indexes::BrIndexes;
 
     const S: &str = "ads\nasdas\n\n\nasdad\n\nasdasd\nasd\na\n";
 

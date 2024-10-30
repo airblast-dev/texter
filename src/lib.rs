@@ -1,4 +1,4 @@
 mod change;
-mod texter;
+mod to_grid_index;
 
-pub use texter::text::Text;
+pub mod core;

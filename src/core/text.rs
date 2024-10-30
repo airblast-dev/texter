@@ -12,11 +12,12 @@ use super::{
     BR_FINDER,
 };
 
-use crate::change::Change;
+use crate::{change::Change, updateables::Updateable};
 
 #[derive(Clone)]
 pub struct Text {
     br_indexes: BrIndexes,
+    old_br_indexes: BrIndexes,
     text: String,
     pos_converter: fn(&str, usize) -> usize,
     pos_converter_exc: fn(&str, usize) -> usize,
@@ -41,6 +42,7 @@ impl Text {
         Text {
             text,
             br_indexes,
+            old_br_indexes: BrIndexes(vec![]),
             pos_converter: utf8,
             pos_converter_exc: utf8_exclusive,
         }
@@ -52,6 +54,7 @@ impl Text {
         Text {
             text,
             br_indexes,
+            old_br_indexes: BrIndexes(vec![]),
             pos_converter: utf16,
             pos_converter_exc: utf16_exclusive,
         }
@@ -59,6 +62,7 @@ impl Text {
 
     pub fn update<C: Into<Change>>(&mut self, change: C) {
         let change = change.into();
+        self.old_br_indexes.clone_from(&self.br_indexes);
         match change {
             Change::Delete { start, end } => {
                 let (br_offset, drain_range) = 't: {
@@ -143,6 +147,10 @@ impl Text {
                 );
 
                 self.text.replace_range(start_index..end_index, &text);
+            }
+            Change::ReplaceFull(s) => {
+                self.br_indexes = BrIndexes::new(&s);
+                self.text = s;
             }
         }
     }

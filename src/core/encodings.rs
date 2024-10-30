@@ -19,7 +19,7 @@ pub mod utf8 {
 }
 
 pub mod utf16 {
-    use crate::texter::encodings::char_oob;
+    use super::char_oob;
 
     use super::char_oob_ex;
 
