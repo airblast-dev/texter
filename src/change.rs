@@ -15,6 +15,7 @@ pub enum Change {
         end: GridIndex,
         text: String,
     },
+    ReplaceFull(String),
 }
 
 #[derive(Clone, Copy, Debug)]

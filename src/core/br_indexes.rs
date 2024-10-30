@@ -53,10 +53,8 @@ impl BrIndexes {
         replacement: I,
     ) -> &[usize] {
         let mut insert_count = 0;
-        let old_len = self
-            .0
-            .splice(start + 1..=end, replacement.inspect(|_| insert_count += 1))
-            .len();
+        self.0
+            .splice(start + 1..=end, replacement.inspect(|_| insert_count += 1));
 
         &self.0[start + 1..start + 1 + insert_count]
     }

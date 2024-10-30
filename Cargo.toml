@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 lsp-types = { version = "0.97.0", optional = true }
 memchr = "2.7.4"
+tree-sitter = { version = "0.24.3" }
 
 [features]
 default = ["lsp-types"]
