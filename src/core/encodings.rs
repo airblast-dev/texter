@@ -26,8 +26,7 @@ pub mod utf16 {
     /// Converts UTF16 indexes to UTF8 indexes.
     pub fn utf16(s: &str, nth: usize) -> usize {
         let mut total_code_points = 0;
-        dbg!(nth);
-        if nth == 0 && s.is_empty() {
+        if nth == 0 {
             return 0;
         }
         for (utf8_index, utf16_len, utf8_len) in s
@@ -49,7 +48,7 @@ pub mod utf16 {
     /// Converts UTF16 indexes to UTF8 indexes but also allows code point + 1 to be used in range operations.
     pub fn utf16_exclusive(s: &str, nth: usize) -> usize {
         let mut total_code_points = 0;
-        if nth == 0 && s.is_empty() {
+        if nth == 0 {
             return 0;
         }
         for (utf8_index, utf16_len, utf8_len) in s
