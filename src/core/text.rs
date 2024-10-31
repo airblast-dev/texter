@@ -19,9 +19,9 @@ use crate::{
 
 #[derive(Clone)]
 pub struct Text {
-    br_indexes: BrIndexes,
-    old_br_indexes: BrIndexes,
-    text: String,
+    pub br_indexes: BrIndexes,
+    pub old_br_indexes: BrIndexes,
+    pub text: String,
     pos_converter: fn(&str, usize) -> usize,
     pos_converter_exc: fn(&str, usize) -> usize,
 }
@@ -66,6 +66,7 @@ impl Text {
     pub fn update<U: Updateable, C: Into<Change>>(&mut self, change: C, updateable: &mut U) {
         let change = change.into();
         self.old_br_indexes.clone_from(&self.br_indexes);
+        dbg!(&change);
         match change {
             Change::Delete { start, end } => {
                 let (br_offset, drain_range) = 't: {
@@ -158,8 +159,8 @@ impl Text {
                 let end_index = end_br + replace_end_col;
 
                 match old_len.cmp(&new_len) {
-                    Ordering::Less => self.br_indexes.add_offsets(start.row, new_len - old_len),
-                    Ordering::Greater => self.br_indexes.sub_offsets(start.row, old_len - new_len),
+                    Ordering::Less => self.br_indexes.add_offsets(end.row, new_len - old_len),
+                    Ordering::Greater => self.br_indexes.sub_offsets(end.row, old_len - new_len),
                     Ordering::Equal => {}
                 }
 
@@ -187,6 +188,7 @@ impl Text {
                 });
 
                 self.text.replace_range(start_index..end_index, &text);
+                dbg!(&self.text);
             }
             Change::ReplaceFull(s) => {
                 self.br_indexes = BrIndexes::new(&s);
@@ -502,8 +504,6 @@ mod tests {
     mod insert {
         use super::*;
 
-        // TODO: add more break line index checks
-
         #[test]
         fn into_empty() {
             let mut t = Text::new(String::new());
@@ -732,7 +732,7 @@ mod tests {
         use super::*;
 
         #[test]
-        fn replace_in_line_start() {
+        fn in_line_start() {
             let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny".to_string());
 
             assert_eq!(t.br_indexes, [0, 13, 24]);
@@ -754,7 +754,7 @@ mod tests {
         }
 
         #[test]
-        fn replace_in_line_middle() {
+        fn in_line_middle() {
             let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny".to_string());
 
             assert_eq!(t.br_indexes, [0, 13, 24]);
@@ -773,6 +773,204 @@ mod tests {
                 "Hello, World!\nByeThis Should replace some stufforld!\nhahaFunny"
             );
             assert_eq!(t.br_indexes, [0, 13, 52]);
+        }
+
+        #[test]
+        fn in_line_end() {
+            let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny".to_string());
+
+            assert_eq!(t.br_indexes, [0, 13, 24]);
+            t.update(
+                Change::Replace {
+                    start: GridIndex { row: 0, col: 4 },
+                    end: GridIndex { row: 0, col: 13 },
+                    text: "Wappow! There he stood.".to_string(),
+                },
+                &mut (),
+            );
+
+            assert_eq!(t.text, "HellWappow! There he stood.\nBye World!\nhahaFunny");
+            assert_eq!(t.br_indexes, [0, 27, 38]);
+        }
+
+        #[test]
+        fn across_first_line() {
+            let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny".to_string());
+
+            assert_eq!(t.br_indexes, [0, 13, 24]);
+            t.update(
+                Change::Replace {
+                    start: GridIndex { row: 0, col: 5 },
+                    end: GridIndex { row: 1, col: 3 },
+                    text: "This replaced with the content in the first line\n and second line"
+                        .to_string(),
+                },
+                &mut (),
+            );
+
+            assert_eq!(t.text, "HelloThis replaced with the content in the first line\n and second line World!\nhahaFunny");
+            assert_eq!(t.br_indexes, [0, 53, 77]);
+        }
+
+        #[test]
+        fn across_start_and_end_line() {
+            let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny\nInteresting!".to_string());
+
+            assert_eq!(t.br_indexes, [0, 13, 24, 34]);
+            t.update(
+                Change::Replace {
+                    start: GridIndex { row: 0, col: 3 },
+                    end: GridIndex { row: 3, col: 6 },
+                    text: "What a wonderful world!\nWowzers\nSome Random text".to_string(),
+                },
+                &mut (),
+            );
+
+            assert_eq!(
+                t.text,
+                "HelWhat a wonderful world!\nWowzers\nSome Random textsting!"
+            );
+
+            assert_eq!(t.br_indexes, [0, 26, 34]);
+        }
+
+        #[test]
+        fn across_end_line() {
+            let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny\nInteresting!".to_string());
+
+            assert_eq!(t.br_indexes, [0, 13, 24, 34]);
+            t.update(
+                Change::Replace {
+                    start: GridIndex { row: 2, col: 3 },
+                    end: GridIndex { row: 3, col: 6 },
+                    text: "What a wonderful world!\nWowzers\nSome Random text".to_string(),
+                },
+                &mut (),
+            );
+
+            assert_eq!(
+                t.text,
+                "Hello, World!\nBye World!\nhahWhat a wonderful world!\nWowzers\nSome Random textsting!"
+            );
+
+            assert_eq!(t.br_indexes, [0, 13, 24, 51, 59]);
+        }
+
+        #[test]
+        fn middle_in_line() {
+            let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny\nInteresting!".to_string());
+
+            assert_eq!(t.br_indexes, [0, 13, 24, 34]);
+            t.update(
+                Change::Replace {
+                    start: GridIndex { row: 2, col: 1 },
+                    end: GridIndex { row: 2, col: 5 },
+                    text: "I am in the middle!\nNo one can stop me.".to_string(),
+                },
+                &mut (),
+            );
+
+            assert_eq!(t.text, "Hello, World!\nBye World!\nhI am in the middle!\nNo one can stop me.unny\nInteresting!");
+            assert_eq!(t.br_indexes, [0, 13, 24, 45, 69]);
+        }
+
+        #[test]
+        fn middle_no_br_replacement() {
+            let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny\nInteresting!".to_string());
+
+            assert_eq!(t.br_indexes, [0, 13, 24, 34]);
+            t.update(
+                Change::Replace {
+                    start: GridIndex { row: 1, col: 3 },
+                    end: GridIndex { row: 1, col: 6 },
+                    text: "Look ma, no line breaks".to_string(),
+                },
+                &mut (),
+            );
+
+            assert_eq!(
+                t.text,
+                "Hello, World!\nByeLook ma, no line breaksrld!\nhahaFunny\nInteresting!"
+            );
+            assert_eq!(t.br_indexes, [0, 13, 44, 54]);
+        }
+
+        #[test]
+        fn start_no_br_replacement() {
+            let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny\nInteresting!".to_string());
+
+            assert_eq!(t.br_indexes, [0, 13, 24, 34]);
+            t.update(
+                Change::Replace {
+                    start: GridIndex { row: 0, col: 3 },
+                    end: GridIndex { row: 0, col: 8 },
+                    text: "Look ma, no line breaks".to_string(),
+                },
+                &mut (),
+            );
+
+            assert_eq!(
+                t.text,
+                "HelLook ma, no line breaksorld!\nBye World!\nhahaFunny\nInteresting!"
+            );
+            assert_eq!(t.br_indexes, [0, 31, 42, 52]);
+        }
+
+        #[test]
+        fn end_no_br_replacement() {
+            let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny\nInteresting!".to_string());
+
+            assert_eq!(t.br_indexes, [0, 13, 24, 34]);
+            t.update(
+                Change::Replace {
+                    start: GridIndex { row: 3, col: 3 },
+                    end: GridIndex { row: 3, col: 8 },
+                    text: "Look ma, no line breaks".to_string(),
+                },
+                &mut (),
+            );
+
+            assert_eq!(
+                t.text,
+                "Hello, World!\nBye World!\nhahaFunny\nIntLook ma, no line breaksing!"
+            );
+            assert_eq!(t.br_indexes, [0, 13, 24, 34]);
+        }
+
+        #[test]
+        fn across_start_and_end_no_br_replacement() {
+            let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny\nInteresting!".to_string());
+
+            assert_eq!(t.br_indexes, [0, 13, 24, 34]);
+            t.update(
+                Change::Replace {
+                    start: GridIndex { row: 0, col: 3 },
+                    end: GridIndex { row: 3, col: 8 },
+                    text: "Look ma, no line breaks".to_string(),
+                },
+                &mut (),
+            );
+
+            assert_eq!(t.text, "HelLook ma, no line breaksing!");
+            assert_eq!(t.br_indexes, [0]);
+        }
+        #[test]
+        fn all() {
+            let mut t =
+                Text::new("SomeText\nSome Other Text\nSome somsoemesome\n wowoas \n\n".to_string());
+
+            assert_eq!(t.br_indexes, [0, 8, 24, 42, 51, 52]);
+            t.update(
+                Change::Replace {
+                    start: GridIndex { row: 0, col: 0 },
+                    end: GridIndex { row: 5, col: 0 },
+                    text: "Hello, World!\nBye World!".to_string(),
+                },
+                &mut (),
+            );
+
+            assert_eq!(t.text, "Hello, World!\nBye World!");
+            assert_eq!(t.br_indexes, [0, 13]);
         }
     }
 }
