@@ -67,7 +67,6 @@ impl Text {
         let mut change = change.into();
         change.normalize(&mut self.text, &mut self.br_indexes);
         self.old_br_indexes.clone_from(&self.br_indexes);
-        dbg!(&change);
         match change {
             Change::Delete { start, end } => {
                 let (br_offset, drain_range) = 't: {
@@ -189,7 +188,6 @@ impl Text {
                 });
 
                 self.text.replace_range(start_index..end_index, &text);
-                dbg!(&self.text);
             }
             Change::ReplaceFull(s) => {
                 self.br_indexes = BrIndexes::new(&s);
