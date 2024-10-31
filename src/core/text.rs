@@ -64,7 +64,8 @@ impl Text {
     }
 
     pub fn update<U: Updateable, C: Into<Change>>(&mut self, change: C, updateable: &mut U) {
-        let change = change.into();
+        let mut change = change.into();
+        change.normalize(&mut self.text, &mut self.br_indexes);
         self.old_br_indexes.clone_from(&self.br_indexes);
         dbg!(&change);
         match change {
@@ -963,7 +964,7 @@ mod tests {
             t.update(
                 Change::Replace {
                     start: GridIndex { row: 0, col: 0 },
-                    end: GridIndex { row: 5, col: 0 },
+                    end: GridIndex { row: 6, col: 0 },
                     text: "Hello, World!\nBye World!".to_string(),
                 },
                 &mut (),

@@ -2,6 +2,8 @@ use std::fmt::Debug;
 
 use lsp_types::{Position, Range, TextDocumentContentChangeEvent};
 
+use crate::core::br_indexes::BrIndexes;
+
 #[derive(Clone, Debug)]
 pub enum Change {
     Delete {
@@ -18,6 +20,34 @@ pub enum Change {
         text: String,
     },
     ReplaceFull(String),
+}
+
+impl Change {
+    /// Normalize the provided the grid index.
+    ///
+    /// When converting a type to [`Change`], the values may not strictly align with what is
+    /// present.
+    pub(crate) fn normalize(&self, text: &mut String, br_indexes: &mut BrIndexes) {
+        // TODO: clamp column value to not allow EOL values.
+        let grid_index = match self {
+            Change::Delete { end, .. } => end,
+            Change::Insert { at, .. } => at,
+            Change::Replace { end, .. } => end,
+            Change::ReplaceFull(_) => return,
+        };
+
+        let row_count = br_indexes.row_count();
+
+        assert!(
+            row_count >= grid_index.row,
+            "Row value should be at most, row_count"
+        );
+
+        if grid_index.row == row_count {
+            br_indexes.insert_indexes(grid_index.row, [br_indexes.last_row()].into_iter());
+            text.push('\n');
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
