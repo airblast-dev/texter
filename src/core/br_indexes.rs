@@ -1,6 +1,6 @@
 use std::ops::Index;
 
-use super::BR_FINDER;
+use super::lines::FastEOL;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct BrIndexes(pub(crate) Vec<usize>);
@@ -25,14 +25,14 @@ where
 impl BrIndexes {
     #[inline]
     pub fn new(s: &str) -> Self {
-        let iter = BR_FINDER.find_iter(s.as_bytes());
+        let iter = FastEOL::new(s);
         let mut byte_indexes = vec![0];
         byte_indexes.extend(iter);
         Self(byte_indexes)
     }
 
     /// The index to the first byte in the row.
-    #[inline]
+    #[inline(always)]
     pub fn row_start(&self, row: usize) -> usize {
         // we increment by one if it is not zero since the index points to a break line,
         // and the first row should start at zero.
@@ -76,7 +76,7 @@ impl BrIndexes {
     }
 
     /// Add an offset to all rows after the provided row number excluding itself.
-    #[inline]
+    #[inline(always)]
     pub(crate) fn add_offsets(&mut self, row: usize, by: usize) {
         if row + 1 > self.0.len() {
             return;
@@ -85,7 +85,7 @@ impl BrIndexes {
     }
 
     /// Sub an offset to all rows after the provided row number excluding itself.
-    #[inline]
+    #[inline(always)]
     pub(crate) fn sub_offsets(&mut self, row: usize, by: usize) {
         if row + 1 > self.0.len() {
             return;
@@ -94,16 +94,18 @@ impl BrIndexes {
     }
 
     /// Returns true if the provided row number is the last row.
-    #[inline]
+    #[inline(always)]
     pub fn is_last_row(&self, row: usize) -> bool {
         assert!(row < self.0.len());
         self.0.len() == row + 1
     }
 
+    #[inline(always)]
     pub fn row_count(&self) -> usize {
         self.0.len()
     }
 
+    #[inline(always)]
     pub fn last_row(&self) -> usize {
         self.row_start(self.row_count() - 1)
     }

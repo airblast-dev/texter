@@ -6,7 +6,7 @@ use std::{
 use super::{
     br_indexes::BrIndexes,
     encodings::{Encoding, UTF16, UTF8},
-    BR_FINDER,
+    lines::FastEOL,
 };
 
 use crate::{
@@ -119,9 +119,7 @@ impl Text {
                 let (start, start_br) = self.nth_row(at.row);
                 let insertion_index = (self.encoding.exclusive)(start, at.col) + start_br;
 
-                let br_indexes = BR_FINDER
-                    .find_iter(text.as_bytes())
-                    .map(|i| i + insertion_index);
+                let br_indexes = FastEOL::new(&text).map(|i| i + insertion_index);
                 self.br_indexes.add_offsets(at.row, text.len());
                 let inserted_br_indexes = {
                     let r = self.br_indexes.insert_indexes(at.row + 1, br_indexes);
@@ -162,9 +160,7 @@ impl Text {
                     let r = self.br_indexes.replace_indexes(
                         start.row,
                         end.row,
-                        BR_FINDER
-                            .find_iter(text.as_bytes())
-                            .map(|bri| bri + start_index),
+                        FastEOL::new(&text).map(|bri| bri + start_index),
                     );
                     &self.br_indexes[r]
                 };
