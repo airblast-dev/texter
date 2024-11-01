@@ -50,6 +50,15 @@ impl Updateable for Tree {
     }
 }
 
+impl<'a, T> Updateable for T
+where
+    T: 'a + FnMut(UpdateContext<'_>),
+{
+    fn update(&mut self, ctx: UpdateContext<'_>) {
+        self(ctx)
+    }
+}
+
 fn edit_from_ctx(ctx: UpdateContext<'_>) -> InputEdit {
     let old_br = ctx.old_breaklines;
     let new_br = ctx.breaklines;
