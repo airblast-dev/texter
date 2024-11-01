@@ -212,7 +212,7 @@ mod tests {
 
     use super::Text;
 
-    // All index modifying tests must check the resulting string, end breakline indexes.
+    // All index modifying tests must check the resulting string, and breakline indexes.
 
     #[test]
     fn nth_row() {
