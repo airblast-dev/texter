@@ -5,10 +5,7 @@ use std::{
 
 use super::{
     br_indexes::BrIndexes,
-    encodings::{
-        utf16::{utf16, utf16_exclusive},
-        utf8::{utf8, utf8_exclusive},
-    },
+    encodings::{Encoding, UTF16, UTF8},
     BR_FINDER,
 };
 
@@ -22,8 +19,7 @@ pub struct Text {
     pub br_indexes: BrIndexes,
     pub old_br_indexes: BrIndexes,
     pub text: String,
-    pos_converter: fn(&str, usize) -> usize,
-    pos_converter_exc: fn(&str, usize) -> usize,
+    encoding: Encoding,
 }
 
 impl Debug for Text {
@@ -46,8 +42,7 @@ impl Text {
             text,
             br_indexes,
             old_br_indexes: BrIndexes(vec![]),
-            pos_converter: utf8,
-            pos_converter_exc: utf8_exclusive,
+            encoding: UTF8,
         }
     }
 
@@ -58,23 +53,22 @@ impl Text {
             text,
             br_indexes,
             old_br_indexes: BrIndexes(vec![]),
-            pos_converter: utf16,
-            pos_converter_exc: utf16_exclusive,
+            encoding: UTF16,
         }
     }
 
     pub fn update<U: Updateable, C: Into<Change>>(&mut self, change: C, updateable: &mut U) {
         let mut change = change.into();
-        change.normalize(&mut self.text, &mut self.br_indexes);
+        change.normalize(&mut self.text, &mut self.br_indexes, self.encoding);
         self.old_br_indexes.clone_from(&self.br_indexes);
         match change {
             Change::Delete { start, end } => {
                 let (br_offset, drain_range) = 't: {
                     let (row_start, col_start, row_end, col_end) = {
                         let (row_start, row_start_index) = self.nth_row(start.row);
-                        let col_start_index = (self.pos_converter)(row_start, start.col);
+                        let col_start_index = (self.encoding.inclusive)(row_start, start.col);
                         let (row_end, row_end_index) = self.nth_row(end.row);
-                        let col_end_index = (self.pos_converter_exc)(row_end, end.col);
+                        let col_end_index = (self.encoding.exclusive)(row_end, end.col);
                         (
                             row_start_index,
                             col_start_index,
@@ -123,7 +117,7 @@ impl Text {
             }
             Change::Insert { at, text } => {
                 let (start, start_br) = self.nth_row(at.row);
-                let insertion_index = (self.pos_converter_exc)(start, at.col) + start_br;
+                let insertion_index = (self.encoding.exclusive)(start, at.col) + start_br;
 
                 let br_indexes = BR_FINDER
                     .find_iter(text.as_bytes())
@@ -149,9 +143,9 @@ impl Text {
             }
             Change::Replace { start, end, text } => {
                 let (start_s, start_br) = self.nth_row(start.row);
-                let replace_start_col = (self.pos_converter)(start_s, start.col);
+                let replace_start_col = (self.encoding.inclusive)(start_s, start.col);
                 let (end_s, end_br) = self.nth_row(end.row);
-                let replace_end_col = (self.pos_converter_exc)(end_s, end.col);
+                let replace_end_col = (self.encoding.exclusive)(end_s, end.col);
                 let old_len = end_br + replace_end_col - (start_br + replace_start_col);
                 let new_len = text.len();
 

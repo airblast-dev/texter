@@ -1,5 +1,6 @@
+// TODO: organize import privacy
 pub mod br_indexes;
-mod encodings;
+pub(crate) mod encodings;
 pub mod text;
 
 use memchr::memmem::Finder;

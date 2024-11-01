@@ -1,16 +1,34 @@
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Encoding {
+    pub inclusive: fn(&str, usize) -> usize,
+    pub exclusive: fn(&str, usize) -> usize,
+}
+
+// TODO: add utf32 (very simple)
+
+pub(crate) const UTF8: Encoding = Encoding {
+    inclusive: utf8::utf8,
+    exclusive: utf8::utf8_exclusive,
+};
+
+pub(crate) const UTF16: Encoding = Encoding {
+    inclusive: utf16::utf16,
+    exclusive: utf16::utf16_exclusive,
+};
+
 pub mod utf8 {
 
     use super::char_oob;
 
     /// Finds the byte index for the
-    pub fn utf8(s: &str, nth: usize) -> usize {
+    pub(super) fn utf8(s: &str, nth: usize) -> usize {
         if s.len() <= nth {
             char_oob();
         };
         nth
     }
 
-    pub fn utf8_exclusive(s: &str, nth: usize) -> usize {
+    pub(super) fn utf8_exclusive(s: &str, nth: usize) -> usize {
         if s.len() < nth {
             char_oob();
         };
@@ -24,7 +42,7 @@ pub mod utf16 {
     use super::char_oob_ex;
 
     /// Converts UTF16 indexes to UTF8 indexes.
-    pub fn utf16(s: &str, nth: usize) -> usize {
+    pub(super) fn utf16(s: &str, nth: usize) -> usize {
         let mut total_code_points = 0;
         if nth == 0 {
             return 0;
@@ -46,7 +64,7 @@ pub mod utf16 {
     }
 
     /// Converts UTF16 indexes to UTF8 indexes but also allows code point + 1 to be used in range operations.
-    pub fn utf16_exclusive(s: &str, nth: usize) -> usize {
+    pub(super) fn utf16_exclusive(s: &str, nth: usize) -> usize {
         let mut total_code_points = 0;
         if nth == 0 {
             return 0;

@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 
-use lsp_types::{Position, Range, TextDocumentContentChangeEvent};
+use lsp_types::{Position, TextDocumentContentChangeEvent};
 
-use crate::core::br_indexes::BrIndexes;
+use crate::core::{br_indexes::BrIndexes, encodings::Encoding};
 
 #[derive(Clone, Debug)]
 pub enum Change {
@@ -27,9 +27,8 @@ impl Change {
     ///
     /// When converting a type to [`Change`], the values may not strictly align with what is
     /// present.
-    pub(crate) fn normalize(&self, text: &mut String, br_indexes: &mut BrIndexes) {
-        // TODO: clamp column value to not allow EOL values.
-        let grid_index = match self {
+    pub(crate) fn normalize(&mut self, text: &mut String, br_indexes: &mut BrIndexes, e: Encoding) {
+        let grid_index: &mut GridIndex = match self {
             Change::Delete { end, .. } => end,
             Change::Insert { at, .. } => at,
             Change::Replace { end, .. } => end,
@@ -37,6 +36,25 @@ impl Change {
         };
 
         let row_count = br_indexes.row_count();
+
+        if grid_index.row < row_count - 1 {
+            let row_start = br_indexes.row_start(grid_index.row);
+            let row_end = br_indexes.row_start(grid_index.row + 1);
+            let base_line = &text[row_start..row_end];
+            // TODO: add checks for the behavior.
+            // TODO: we probably could do better checks and optimize this.
+            let pure_line = base_line.trim_end_matches(['\r', '\n']);
+            // based on the LSP standard these two characters are considered EOL.
+            // A lsp_types::Range should not point to EOL bytes, or beyond a single row.
+            // The documented behavior we should follow is to exclusively clamp the value to the end of the row
+            // excluding the EOL bytes. In other words, the character value can at most point to
+            // the index of first EOL byte.
+
+            // we should only have at most two bytes ("\r\n") trimmed.
+            // this check and the trimming above should be a bit more sophisticated.
+            assert!(base_line.len().abs_diff(pure_line.len()) < 3);
+            grid_index.col = grid_index.col.min((e.exclusive)(pure_line, grid_index.col));
+        }
 
         assert!(
             row_count >= grid_index.row,
