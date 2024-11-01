@@ -962,4 +962,6 @@ mod tests {
             assert_eq!(t.br_indexes, [0, 13]);
         }
     }
+
+    // TODO: add mixed tests using all of the possible changes
 }
