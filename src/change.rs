@@ -143,7 +143,7 @@ impl GridIndex {
         );
 
         if self.row == row_count {
-            br_indexes.insert_indexes(self.row, [br_indexes.last_row()].into_iter());
+            br_indexes.insert_index(self.row, br_indexes.last_row());
             text.text.push('\n');
         }
     }

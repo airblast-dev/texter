@@ -53,6 +53,10 @@ impl BrIndexes {
         at..at + i
     }
 
+    pub(crate) fn insert_index(&mut self, at: usize, index: usize) {
+        self.0.insert(at, index);
+    }
+
     /// Removes the indexes between start and end, not including start, but including end.
     #[inline]
     pub(crate) fn remove_indexes(&mut self, start: usize, end: usize) {
