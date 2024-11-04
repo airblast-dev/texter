@@ -37,29 +37,29 @@ pub struct UpdateContext<'a> {
 }
 
 pub trait Updateable {
-    fn update(&mut self, ctx: UpdateContext<'_>);
+    fn update(&mut self, ctx: UpdateContext);
 }
 
 impl Updateable for () {
-    fn update(&mut self, _: UpdateContext<'_>) {}
+    fn update(&mut self, _: UpdateContext) {}
 }
 
 impl Updateable for Tree {
-    fn update(&mut self, ctx: UpdateContext<'_>) {
+    fn update(&mut self, ctx: UpdateContext) {
         self.edit(&edit_from_ctx(ctx));
     }
 }
 
 impl<'a, T> Updateable for T
 where
-    T: 'a + FnMut(UpdateContext<'_>),
+    T: 'a + FnMut(UpdateContext),
 {
-    fn update(&mut self, ctx: UpdateContext<'_>) {
+    fn update(&mut self, ctx: UpdateContext) {
         self(ctx)
     }
 }
 
-fn edit_from_ctx(ctx: UpdateContext<'_>) -> InputEdit {
+fn edit_from_ctx(ctx: UpdateContext) -> InputEdit {
     let old_br = ctx.old_breaklines;
     let new_br = ctx.breaklines;
     match ctx.change {
