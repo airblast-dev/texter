@@ -1,6 +1,7 @@
-use std::fmt::Debug;
+use std::{cmp::Ordering, fmt::Debug};
 
 use lsp_types::{Position, TextDocumentContentChangeEvent};
+use tree_sitter::Point;
 
 use crate::core::text::Text;
 
@@ -39,10 +40,25 @@ impl Change {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct GridIndex {
     pub row: usize,
     pub col: usize,
+}
+
+impl PartialEq<Point> for GridIndex {
+    fn eq(&self, other: &Point) -> bool {
+        self.row == other.row && self.col == other.column
+    }
+}
+
+impl PartialOrd<Point> for GridIndex {
+    fn partial_cmp(&self, other: &Point) -> Option<std::cmp::Ordering> {
+        match self.row.cmp(&other.row) {
+            Ordering::Equal => self.col.partial_cmp(&other.column),
+            s => Some(s),
+        }
+    }
 }
 
 impl From<Position> for GridIndex {
@@ -50,6 +66,33 @@ impl From<Position> for GridIndex {
         GridIndex {
             row: value.line as usize,
             col: value.character as usize,
+        }
+    }
+}
+
+impl From<GridIndex> for Position {
+    fn from(value: GridIndex) -> Self {
+        Position {
+            line: value.row as u32,
+            character: value.col as u32,
+        }
+    }
+}
+
+impl From<Point> for GridIndex {
+    fn from(value: Point) -> Self {
+        GridIndex {
+            row: value.row,
+            col: value.column,
+        }
+    }
+}
+
+impl From<GridIndex> for Point {
+    fn from(value: GridIndex) -> Self {
+        Point {
+            row: value.row,
+            column: value.col,
         }
     }
 }
