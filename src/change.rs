@@ -1,4 +1,5 @@
-use std::{cmp::Ordering, fmt::Debug};
+use core::str;
+use std::cmp::Ordering;
 
 use lsp_types::{Position, TextDocumentContentChangeEvent};
 use tree_sitter::Point;
@@ -99,7 +100,7 @@ impl From<GridIndex> for Point {
 
 impl GridIndex {
     pub fn normalize(&mut self, text: &mut Text) {
-        let br_indexes = &mut text.br_indexes;
+        let br_indexes = &text.br_indexes;
         let row_count = br_indexes.row_count();
 
         if self.row < row_count - 1 {
@@ -107,19 +108,34 @@ impl GridIndex {
             let row_end = br_indexes.row_start(self.row + 1);
             let base_line = &text.text[row_start..row_end];
             // TODO: add checks for the behavior.
-            // TODO: we probably could do better checks and optimize this.
-            let pure_line = base_line.trim_end_matches(['\r', '\n']);
-            // based on the LSP standard these two characters are considered EOL.
-            // A lsp_types::Range should not point to EOL bytes, or beyond a single row.
-            // The documented behavior we should follow is to exclusively clamp the value to the end of the row
-            // excluding the EOL bytes. In other words, the character value can at most point to
-            // the index of first EOL byte.
+            let pure_line = match base_line.as_bytes() {
+                // This pattern should come first as the following pattern could cause an EOL to be
+                // included.
+                // SAFETY: Since the provided range is based on the length of the str - EOL bytes,
+                // worst we can get is an empty str. We are only matching on ascii character bytes,
+                // and any byte of a multibyte UTF8 character cannot match with any ascii byte.
+                [.., b'\r', b'\n'] => unsafe {
+                    str::from_utf8_unchecked(
+                        base_line.as_bytes().get_unchecked(..base_line.len() - 2),
+                    )
+                },
+                // SAFETY: Since the provided range is based on the length of the str - EOL bytes,
+                // worst we can get is an empty str. We are only matching on ascii character bytes,
+                // and any byte of a multibyte UTF8 character cannot match with any ascii byte.
+                [.., b'\n' | b'\r'] => unsafe {
+                    str::from_utf8_unchecked(
+                        base_line.as_bytes().get_unchecked(..base_line.len() - 1),
+                    )
+                },
+                _ => base_line,
+            };
 
-            // we should only have at most two bytes ("\r\n") trimmed.
-            // this check and the trimming above should be a bit more sophisticated.
-            assert!(base_line.len().abs_diff(pure_line.len()) < 3);
+            // using debug assert in case of very long lines
+            debug_assert!(!pure_line.contains(['\n', '\r']));
             self.col = self.col.min((text.encoding.exclusive)(pure_line, self.col));
         }
+
+        let br_indexes = &mut text.br_indexes;
 
         assert!(
             row_count >= self.row,
