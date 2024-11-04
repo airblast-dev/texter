@@ -5,7 +5,7 @@ use tree_sitter::Point;
 
 use crate::core::text::Text;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Change {
     Delete {
         start: GridIndex,
