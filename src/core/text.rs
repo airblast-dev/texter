@@ -19,7 +19,7 @@ pub struct Text {
     pub br_indexes: BrIndexes,
     pub old_br_indexes: BrIndexes,
     pub text: String,
-    encoding: Encoding,
+    pub(crate) encoding: Encoding,
 }
 
 impl Debug for Text {
@@ -59,7 +59,7 @@ impl Text {
 
     pub fn update<U: Updateable, C: Into<Change>>(&mut self, change: C, updateable: &mut U) {
         let mut change = change.into();
-        change.normalize(&mut self.text, &mut self.br_indexes, self.encoding);
+        change.normalize(self);
         self.old_br_indexes.clone_from(&self.br_indexes);
         match change {
             Change::Delete { start, end } => {
