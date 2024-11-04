@@ -5,7 +5,7 @@ use std::{
 
 use super::{
     br_indexes::BrIndexes,
-    encodings::{Encoding, UTF16, UTF8},
+    encodings::{Encoding, UTF16, UTF32, UTF8},
     lines::FastEOL,
 };
 
@@ -54,6 +54,17 @@ impl Text {
             br_indexes,
             old_br_indexes: BrIndexes(vec![]),
             encoding: UTF16,
+        }
+    }
+
+    /// Creates a new [`Text`] for UTF16 encoded positions.
+    pub fn new_utf32(text: String) -> Self {
+        let br_indexes = BrIndexes::new(&text);
+        Text {
+            text,
+            br_indexes,
+            old_br_indexes: BrIndexes(vec![]),
+            encoding: UTF32,
         }
     }
 

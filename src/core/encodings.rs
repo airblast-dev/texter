@@ -1,48 +1,62 @@
+pub(crate) type EncodingFn = fn(&str, usize) -> usize;
+
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Encoding {
-    pub inclusive: fn(&str, usize) -> usize,
-    pub exclusive: fn(&str, usize) -> usize,
+    pub inclusive: EncodingFn,
+    pub exclusive: EncodingFn,
 }
 
-// TODO: add utf32 (very simple)
-
 pub(crate) const UTF8: Encoding = Encoding {
-    inclusive: utf8::utf8,
-    exclusive: utf8::utf8_exclusive,
+    inclusive: utf8::inclusive,
+    exclusive: utf8::exclusive,
 };
 
 pub(crate) const UTF16: Encoding = Encoding {
-    inclusive: utf16::utf16,
-    exclusive: utf16::utf16_exclusive,
+    inclusive: utf16::inclusive,
+    exclusive: utf16::exclusive,
+};
+
+pub(crate) const UTF32: Encoding = Encoding {
+    inclusive: utf32::inclusive,
+    exclusive: utf32::exclusive,
 };
 
 pub mod utf8 {
 
-    use super::char_oob;
+    use super::{between_code_points, char_oob, char_oob_ex};
 
     /// Finds the byte index for the
-    pub(super) fn utf8(s: &str, nth: usize) -> usize {
+    #[inline]
+    pub(super) fn inclusive(s: &str, nth: usize) -> usize {
         if s.len() <= nth {
-            char_oob();
+            char_oob(s.len(), nth);
         };
+        if !s.is_char_boundary(nth) {
+            between_code_points();
+        }
         nth
     }
 
-    pub(super) fn utf8_exclusive(s: &str, nth: usize) -> usize {
+    #[inline]
+    pub(super) fn exclusive(s: &str, nth: usize) -> usize {
         if s.len() < nth {
-            char_oob();
+            char_oob_ex(s.len(), nth);
         };
+        if !s.is_char_boundary(nth) {
+            between_code_points();
+        }
         nth
     }
 }
 
 pub mod utf16 {
+    use super::between_code_points;
     use super::char_oob;
 
     use super::char_oob_ex;
 
     /// Converts UTF16 indexes to UTF8 indexes.
-    pub(super) fn utf16(s: &str, nth: usize) -> usize {
+    pub(super) fn inclusive(s: &str, nth: usize) -> usize {
         let mut total_code_points = 0;
         if nth == 0 {
             return 0;
@@ -51,20 +65,20 @@ pub mod utf16 {
             .char_indices()
             .map(|(i, c)| (i, c.len_utf16(), c.len_utf8()))
         {
+            if total_code_points > nth {
+                between_code_points();
+            }
             total_code_points += utf16_len;
             if total_code_points == nth {
                 return utf8_index + utf8_len;
             }
-            if total_code_points > nth {
-                panic!("UTF16 position should never be between code points");
-            }
         }
 
-        char_oob()
+        char_oob(total_code_points, nth)
     }
 
     /// Converts UTF16 indexes to UTF8 indexes but also allows code point + 1 to be used in range operations.
-    pub(super) fn utf16_exclusive(s: &str, nth: usize) -> usize {
+    pub(super) fn exclusive(s: &str, nth: usize) -> usize {
         let mut total_code_points = 0;
         if nth == 0 {
             return 0;
@@ -78,7 +92,7 @@ pub mod utf16 {
                 return utf8_index + utf8_len;
             }
             if total_code_points > nth {
-                panic!("UTF16 position should never be between code points");
+                between_code_points();
             }
         }
 
@@ -86,20 +100,56 @@ pub mod utf16 {
             return nth;
         }
 
-        char_oob_ex()
+        char_oob_ex(total_code_points, nth)
+    }
+}
+
+mod utf32 {
+    use super::{char_oob, char_oob_ex};
+
+    #[inline]
+    pub(super) fn inclusive(s: &str, nth: usize) -> usize {
+        let mut counter = 0;
+        let Some((i, _)) = s.char_indices().inspect(|_| counter += 1).nth(nth) else {
+            char_oob(counter, nth);
+        };
+
+        i
+    }
+
+    #[inline]
+    pub(super) fn exclusive(s: &str, nth: usize) -> usize {
+        let mut counter = 0;
+        let Some((i, _)) = s.char_indices().inspect(|_| counter += 1).nth(nth) else {
+            if counter + 1 == nth {
+                return s.len();
+            }
+            char_oob_ex(counter, nth);
+        };
+
+        i
     }
 }
 
 #[cold]
 #[inline(never)]
 #[track_caller]
-fn char_oob() -> ! {
-    panic!("byte index should never more than byte count")
+fn char_oob(byte_index: usize, byte_count: usize) -> ! {
+    panic!("byte index should never more than byte count -> {byte_index} <= {byte_count}")
 }
 
 #[cold]
 #[inline(never)]
 #[track_caller]
-fn char_oob_ex() -> ! {
-    panic!("exclusive byte index should never more than byte count + 1")
+fn char_oob_ex(byte_index: usize, byte_count: usize) -> ! {
+    panic!(
+        "exclusive byte index should never more than byte count + 1 -> {byte_index} < {byte_count}"
+    )
+}
+
+#[cold]
+#[inline(never)]
+#[track_caller]
+fn between_code_points() {
+    panic!("position should never be between code points");
 }
