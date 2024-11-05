@@ -2,6 +2,7 @@ use tree_sitter::{InputEdit, Point, Tree};
 
 use crate::{change::GridIndex, core::br_indexes::BrIndexes};
 
+#[derive(Clone, Debug)]
 pub enum ChangeContext<'a> {
     Insert {
         inserted_br_indexes: &'a [usize],
@@ -23,6 +24,7 @@ pub enum ChangeContext<'a> {
     },
 }
 
+#[derive(Clone, Debug)]
 pub struct UpdateContext<'a> {
     /// A context change that is being used to update the [`Text`].
     pub change: ChangeContext<'a>,
@@ -92,7 +94,8 @@ fn edit_from_ctx(ctx: UpdateContext) -> InputEdit {
                     column: inserted_br_indexes
                         .last()
                         .map(|bri| text.len() - (bri - start_byte))
-                        .unwrap_or(text.len()),
+                        .unwrap_or(text.len())
+                        + position.col,
                 },
             }
         }
@@ -119,7 +122,7 @@ fn edit_from_ctx(ctx: UpdateContext) -> InputEdit {
                     } else {
                         Point {
                             row: start.row,
-                            column: start_byte + text.len(),
+                            column: start.col + text.len(),
                         }
                     }
                 },
