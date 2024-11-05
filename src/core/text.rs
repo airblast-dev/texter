@@ -16,8 +16,27 @@ use crate::{
 
 #[derive(Clone)]
 pub struct Text {
+    /// The EOL byte positions of the text.
+    ///
+    /// In case of multibyte EOL patterns (such as `\r\n`) the values point to the last byte.
+    ///
+    /// If modifying `Text.text`, the changes should also be reflected in [`BrIndexes`].
     pub br_indexes: BrIndexes,
+    /// The EOL positions of the text, from the previous update.
+    ///
+    /// The same rules and restrictions that apply to the current [`BrIndexes`] also apply
+    /// here.
+    ///
+    /// This is provided to the [`Updateable`] passed to [`Self::update`] to avoid recalculating
+    /// positions.
     pub old_br_indexes: BrIndexes,
+    /// The text that is stored.
+    ///
+    /// When an insertion is performed on line count + 1, a line break is inserted.
+    /// This means the string stored is not always an exact one to one copy of its source.
+    ///
+    /// When manually modifying the string outside of the provided methods, it is up to the user to
+    /// assure that the `Text.br_indexes` are alligned with what is present in the string.
     pub text: String,
     pub(crate) encoding: Encoding,
 }
