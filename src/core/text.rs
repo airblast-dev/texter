@@ -57,7 +57,7 @@ impl Text {
         }
     }
 
-    /// Creates a new [`Text`] for UTF16 encoded positions.
+    /// Creates a new [`Text`] for UTF32 encoded positions.
     pub fn new_utf32(text: String) -> Self {
         let br_indexes = BrIndexes::new(&text);
         Text {
