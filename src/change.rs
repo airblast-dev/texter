@@ -30,14 +30,15 @@ impl Change {
     /// When converting a type to [`Change`], the values may not strictly align with what is
     /// present.
     pub(crate) fn normalize(&mut self, text: &mut Text) {
-        let grid_index: &mut GridIndex = match self {
-            Change::Delete { end, .. } => end,
-            Change::Insert { at, .. } => at,
-            Change::Replace { end, .. } => end,
+        let (start, end) = match self {
+            Change::Delete { start, end } => (start, end),
+            Change::Insert { at, .. } => (&mut GridIndex { row: 0, col: 0 }, at),
+            Change::Replace { start, end, .. } => (start, end),
             Change::ReplaceFull(_) => return,
         };
 
-        grid_index.normalize(text);
+        start.normalize(text);
+        end.normalize_exclusive(text);
     }
 }
 
@@ -102,50 +103,63 @@ impl GridIndex {
     pub fn normalize(&mut self, text: &mut Text) {
         let br_indexes = &text.br_indexes;
         let row_count = br_indexes.row_count();
-
-        if self.row < row_count - 1 {
+        if !br_indexes.is_last_row(self.row) {
             let row_start = br_indexes.row_start(self.row);
             let row_end = br_indexes.row_start(self.row + 1);
             let base_line = &text.text[row_start..row_end];
-            // TODO: add checks for the behavior.
-            let pure_line = match base_line.as_bytes() {
-                // This pattern should come first as the following pattern could cause an EOL to be
-                // included.
-                // SAFETY: Since the provided range is based on the length of the str - EOL bytes,
-                // worst we can get is an empty str. We are only matching on ascii character bytes,
-                // and any byte of a multibyte UTF8 character cannot match with any ascii byte.
-                [.., b'\r', b'\n'] => unsafe {
-                    str::from_utf8_unchecked(
-                        base_line.as_bytes().get_unchecked(..base_line.len() - 2),
-                    )
-                },
-                // SAFETY: Since the provided range is based on the length of the str - EOL bytes,
-                // worst we can get is an empty str. We are only matching on ascii character bytes,
-                // and any byte of a multibyte UTF8 character cannot match with any ascii byte.
-                [.., b'\n' | b'\r'] => unsafe {
-                    str::from_utf8_unchecked(
-                        base_line.as_bytes().get_unchecked(..base_line.len() - 1),
-                    )
-                },
-                _ => base_line,
-            };
+            let pure_line = normalize_non_last_row(base_line);
 
-            // using debug assert in case of very long lines
-            debug_assert!(!pure_line.contains(['\n', '\r']));
-            self.col = self.col.min((text.encoding.exclusive)(pure_line, self.col));
+            self.col = (text.encoding.inclusive)(pure_line, self.col);
         }
-
-        let br_indexes = &mut text.br_indexes;
 
         assert!(
             row_count >= self.row,
             "Row value should be at most, row_count"
         );
+    }
 
-        if self.row == row_count {
+    pub fn normalize_exclusive(&mut self, text: &mut Text) {
+        let br_indexes = &mut text.br_indexes;
+        if self.row == br_indexes.row_count() {
             br_indexes.insert_index(self.row, br_indexes.last_row());
             text.text.push('\n');
         }
+        let row_count = br_indexes.row_count();
+
+        if !br_indexes.is_last_row(self.row) {
+            let row_start = br_indexes.row_start(self.row);
+            let row_end = br_indexes.row_start(self.row + 1);
+            let base_line = &text.text[row_start..row_end];
+            let pure_line = normalize_non_last_row(base_line);
+
+            self.col = (text.encoding.exclusive)(pure_line, self.col);
+        }
+
+        assert!(
+            row_count > self.row,
+            "Row value should be at most, row_count"
+        );
+    }
+}
+
+fn normalize_non_last_row(base_line: &str) -> &str {
+    // TODO: add checks for the behavior.
+    match base_line.as_bytes() {
+        // This pattern should come first as the following pattern could cause an EOL to be
+        // included.
+        // SAFETY: Since the provided range is based on the length of the str - EOL bytes,
+        // worst we can get is an empty str. We are only matching on ascii character bytes,
+        // and any byte of a multibyte UTF8 character cannot match with any ascii byte.
+        [.., b'\r', b'\n'] => unsafe {
+            str::from_utf8_unchecked(base_line.as_bytes().get_unchecked(..base_line.len() - 2))
+        },
+        // SAFETY: Since the provided range is based on the length of the str - EOL bytes,
+        // worst we can get is an empty str. We are only matching on ascii character bytes,
+        // and any byte of a multibyte UTF8 character cannot match with any ascii byte.
+        [.., b'\n' | b'\r'] => unsafe {
+            str::from_utf8_unchecked(base_line.as_bytes().get_unchecked(..base_line.len() - 1))
+        },
+        _ => base_line,
     }
 }
 

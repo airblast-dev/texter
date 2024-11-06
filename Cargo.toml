@@ -4,10 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-lsp-types = { version = "0.97.0", optional = true }
+lsp-types = { version = "0.97.0" }
 memchr = "2.7.4"
 tree-sitter = { version = "0.24.3" }
-
-[features]
-default = ["lsp-types"]
-lsp-types = ["dep:lsp-types"]

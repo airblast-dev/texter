@@ -28,7 +28,7 @@ pub mod utf8 {
     /// Finds the byte index for the
     #[inline]
     pub(super) fn inclusive(s: &str, nth: usize) -> usize {
-        if s.len() <= nth {
+        if s.len() < nth {
             char_oob(s.len(), nth);
         };
         if !s.is_char_boundary(nth) {
@@ -61,9 +61,9 @@ pub mod utf16 {
         if nth == 0 {
             return 0;
         }
-        for (utf8_index, utf16_len, utf8_len) in s
+        for (utf8_index, utf8_len, utf16_len) in s
             .char_indices()
-            .map(|(i, c)| (i, c.len_utf16(), c.len_utf8()))
+            .map(|(i, c)| (i, c.len_utf8(), c.len_utf16()))
         {
             if total_code_points > nth {
                 between_code_points();
@@ -83,16 +83,16 @@ pub mod utf16 {
         if nth == 0 {
             return 0;
         }
-        for (utf8_index, utf16_len, utf8_len) in s
+        for (utf8_index, utf8_len, utf16_len) in s
             .char_indices()
-            .map(|(i, c)| (i, c.len_utf16(), c.len_utf8()))
+            .map(|(i, c)| (i, c.len_utf8(), c.len_utf16()))
         {
+            if total_code_points > nth {
+                between_code_points();
+            }
             total_code_points += utf16_len;
             if total_code_points == nth {
                 return utf8_index + utf8_len;
-            }
-            if total_code_points > nth {
-                between_code_points();
             }
         }
 
@@ -143,7 +143,7 @@ fn char_oob(byte_index: usize, byte_count: usize) -> ! {
 #[track_caller]
 fn char_oob_ex(byte_index: usize, byte_count: usize) -> ! {
     panic!(
-        "exclusive byte index should never more than byte count + 1 -> {byte_index} < {byte_count}"
+        "exclusive byte index should never more than byte count + 1 -> {byte_index} <= {byte_count} + 1"
     )
 }
 

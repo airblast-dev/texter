@@ -95,16 +95,9 @@ impl Text {
             Change::Delete { start, end } => {
                 let (br_offset, drain_range) = 't: {
                     let (row_start, col_start, row_end, col_end) = {
-                        let (row_start, row_start_index) = self.nth_row(start.row);
-                        let col_start_index = (self.encoding.inclusive)(row_start, start.col);
-                        let (row_end, row_end_index) = self.nth_row(end.row);
-                        let col_end_index = (self.encoding.exclusive)(row_end, end.col);
-                        (
-                            row_start_index,
-                            col_start_index,
-                            row_end_index,
-                            col_end_index,
-                        )
+                        let row_start_index = self.nth_row(start.row);
+                        let row_end_index = self.nth_row(end.row);
+                        (row_start_index, start.col, row_end_index, end.col)
                     };
                     let drain_range = row_start + col_start..row_end + col_end;
 
@@ -146,8 +139,8 @@ impl Text {
                 self.text.drain(drain_range);
             }
             Change::Insert { at, text } => {
-                let (start, start_br) = self.nth_row(at.row);
-                let insertion_index = (self.encoding.exclusive)(start, at.col) + start_br;
+                let start_br = self.nth_row(at.row);
+                let insertion_index = at.col + start_br;
 
                 let br_indexes = FastEOL::new(&text).map(|i| i + insertion_index);
                 self.br_indexes.add_offsets(at.row, text.len());
@@ -170,10 +163,10 @@ impl Text {
                 self.text.insert_str(insertion_index, &text);
             }
             Change::Replace { start, end, text } => {
-                let (start_s, start_br) = self.nth_row(start.row);
-                let replace_start_col = (self.encoding.inclusive)(start_s, start.col);
-                let (end_s, end_br) = self.nth_row(end.row);
-                let replace_end_col = (self.encoding.exclusive)(end_s, end.col);
+                let start_br = self.nth_row(start.row);
+                let replace_start_col = start.col;
+                let end_br = self.nth_row(end.row);
+                let replace_end_col = end.col;
                 let old_len = end_br + replace_end_col - (start_br + replace_start_col);
                 let new_len = text.len();
 
@@ -224,15 +217,8 @@ impl Text {
 
     /// returns the nth row including the trailing line break if one if present
     #[inline]
-    fn nth_row(&self, r: usize) -> (&str, usize) {
-        let start_index = self.br_indexes.row_start(r);
-        if self.br_indexes.is_last_row(r) {
-            return (&self.text[start_index..], start_index);
-        }
-
-        let bi = self.br_indexes.row_start(r + 1);
-
-        (&self.text[start_index..bi], start_index)
+    fn nth_row(&self, r: usize) -> usize {
+        self.br_indexes.row_start(r)
     }
 }
 
@@ -248,11 +234,11 @@ mod tests {
     fn nth_row() {
         let t = Text::new("Apple\nOrange\nBanana\nCoconut\nFruity".to_string());
         assert_eq!(t.br_indexes, [0, 5, 12, 19, 27]);
-        assert_eq!(t.nth_row(0), ("Apple\n", 0));
-        assert_eq!(t.nth_row(1), ("Orange\n", 6));
-        assert_eq!(t.nth_row(2), ("Banana\n", 13));
-        assert_eq!(t.nth_row(3), ("Coconut\n", 20));
-        assert_eq!(t.nth_row(4), ("Fruity", 28));
+        assert_eq!(t.nth_row(0), 0);
+        assert_eq!(t.nth_row(1), 6);
+        assert_eq!(t.nth_row(2), 13);
+        assert_eq!(t.nth_row(3), 20);
+        assert_eq!(t.nth_row(4), 28);
     }
 
     mod delete {
