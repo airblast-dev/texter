@@ -7,6 +7,7 @@ pub(crate) struct FastEOL<'a> {
     haystack: &'a [u8],
     iter: Memchr2<'a>,
     r: Option<usize>,
+    last_found: usize,
 }
 
 const RC: u8 = b'\r';
@@ -18,6 +19,7 @@ impl<'a> FastEOL<'a> {
         Self {
             iter,
             haystack: haystack.as_bytes(),
+            last_found: 0,
             r: None,
         }
     }
@@ -27,6 +29,7 @@ impl Iterator for FastEOL<'_> {
     type Item = usize;
     fn next(&mut self) -> Option<Self::Item> {
         let next = self.iter.next();
+        self.last_found = next.unwrap_or_default();
         let Some(mut n) = next else {
             return self.r.take();
         };
@@ -53,6 +56,10 @@ impl Iterator for FastEOL<'_> {
             }
             _ => unreachable!("the byte value should only be a line break or carriage return"),
         }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(self.haystack.len() - self.last_found))
     }
 }
 
