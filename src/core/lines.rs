@@ -59,7 +59,10 @@ impl Iterator for FastEOL<'_> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (0, Some(self.haystack.len() - self.last_found))
+        (
+            self.r.is_some() as usize,
+            Some(self.haystack.len() - self.last_found),
+        )
     }
 }
 
