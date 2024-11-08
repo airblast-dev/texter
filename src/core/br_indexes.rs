@@ -2,8 +2,18 @@ use std::ops::Index;
 
 use super::lines::FastEOL;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct BrIndexes(pub(crate) Vec<usize>);
+
+impl Clone for BrIndexes {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.0.clone_from(&source.0);
+    }
+}
 
 // Mainly used to remove duplicate code in tests.
 impl<S: AsRef<[usize]>> PartialEq<S> for BrIndexes {
