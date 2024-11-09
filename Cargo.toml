@@ -9,5 +9,5 @@ memchr = "2.7.4"
 tree-sitter = { version = "0.24.3", optional = true }
 
 [features]
-default = ["tree-sitter"]
+default = []
 tree-sitter = ["dep:tree-sitter"]

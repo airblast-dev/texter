@@ -1,8 +1,6 @@
 use core::str;
-use std::cmp::Ordering;
 
 use lsp_types::{Position, TextDocumentContentChangeEvent};
-use tree_sitter::Point;
 
 use crate::core::text::Text;
 
@@ -48,17 +46,42 @@ pub struct GridIndex {
     pub col: usize,
 }
 
-impl PartialEq<Point> for GridIndex {
-    fn eq(&self, other: &Point) -> bool {
-        self.row == other.row && self.col == other.column
-    }
-}
+#[cfg(feature = "tree-sitter")]
+mod ts {
+    use std::cmp::Ordering;
 
-impl PartialOrd<Point> for GridIndex {
-    fn partial_cmp(&self, other: &Point) -> Option<std::cmp::Ordering> {
-        match self.row.cmp(&other.row) {
-            Ordering::Equal => self.col.partial_cmp(&other.column),
-            s => Some(s),
+    use tree_sitter::Point;
+
+    use super::GridIndex;
+    impl PartialEq<Point> for GridIndex {
+        fn eq(&self, other: &Point) -> bool {
+            self.row == other.row && self.col == other.column
+        }
+    }
+
+    impl PartialOrd<Point> for GridIndex {
+        fn partial_cmp(&self, other: &Point) -> Option<std::cmp::Ordering> {
+            match self.row.cmp(&other.row) {
+                Ordering::Equal => self.col.partial_cmp(&other.column),
+                s => Some(s),
+            }
+        }
+    }
+    impl From<Point> for GridIndex {
+        fn from(value: Point) -> Self {
+            GridIndex {
+                row: value.row,
+                col: value.column,
+            }
+        }
+    }
+
+    impl From<GridIndex> for Point {
+        fn from(value: GridIndex) -> Self {
+            Point {
+                row: value.row,
+                column: value.col,
+            }
         }
     }
 }
@@ -77,24 +100,6 @@ impl From<GridIndex> for Position {
         Position {
             line: value.row as u32,
             character: value.col as u32,
-        }
-    }
-}
-
-impl From<Point> for GridIndex {
-    fn from(value: Point) -> Self {
-        GridIndex {
-            row: value.row,
-            col: value.column,
-        }
-    }
-}
-
-impl From<GridIndex> for Point {
-    fn from(value: GridIndex) -> Self {
-        Point {
-            row: value.row,
-            column: value.col,
         }
     }
 }
