@@ -3,8 +3,12 @@ run-name: ${{ github.ref }}
 on: 
   pull_request:
     types: [opened, edited]
+    paths:
+      - '**.rs'
   push:
     types: []
+    paths:
+      - '**.rs'
 
 jobs:
   tests:
