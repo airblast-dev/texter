@@ -186,6 +186,7 @@ dependencies = [
  "lsp-types",
  "memchr",
  "tree-sitter",
+ "tree-sitter-html",
 ]
 
 [[package]]
@@ -198,6 +199,16 @@ dependencies = [
  "regex",
  "regex-syntax",
  "streaming-iterator",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-html"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d52d710a3723360ebade986d3f0ae2aa2c3bcfb87bb1cdf60988ec51c81c40d"
+dependencies = [
+ "cc",
  "tree-sitter-language",
 ]
 

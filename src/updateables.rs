@@ -148,3 +148,143 @@ mod ts {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(feature = "tree-sitter")]
+    mod ts {
+        use tree_sitter::{InputEdit, Point};
+
+        use crate::{
+            change::GridIndex,
+            core::br_indexes::BrIndexes,
+            updateables::{ts::edit_from_ctx, ChangeContext, UpdateContext},
+        };
+
+        #[test]
+        fn edit_ctx_delete() {
+            let edit = edit_from_ctx(UpdateContext {
+                breaklines: &BrIndexes(vec![0, 12, 14]),
+                old_breaklines: &BrIndexes(vec![0, 12, 16, 20]),
+                old_str: "Hello World!\n123\nasd\nAppleJuice",
+                change: ChangeContext::Delete {
+                    start: GridIndex { row: 1, col: 0 },
+                    end: GridIndex { row: 2, col: 2 },
+                },
+            });
+
+            let correct_edit = InputEdit {
+                start_byte: 13,
+                start_position: Point { row: 1, column: 0 },
+                old_end_byte: 19,
+                old_end_position: Point { row: 2, column: 2 },
+                new_end_byte: 13,
+                new_end_position: Point { row: 1, column: 0 },
+            };
+
+            assert_eq!(edit, correct_edit);
+        }
+
+        #[test]
+        fn edit_ctx_insert() {
+            let edit = edit_from_ctx(UpdateContext {
+                breaklines: &BrIndexes(vec![0, 12, 14]),
+                old_breaklines: &BrIndexes(vec![0, 12, 16, 20]),
+                old_str: "Hello World!\nd\nAppleJuice",
+                change: ChangeContext::Insert {
+                    inserted_br_indexes: &[16],
+                    position: GridIndex { row: 1, col: 0 },
+                    text: "123\nas",
+                },
+            });
+
+            let correct_edit = InputEdit {
+                start_byte: 13,
+                start_position: Point { row: 1, column: 0 },
+                old_end_byte: 13,
+                old_end_position: Point { row: 1, column: 0 },
+                new_end_byte: 19,
+                new_end_position: Point { row: 2, column: 3 },
+            };
+
+            assert_eq!(edit, correct_edit);
+        }
+
+        #[test]
+        fn edit_ctx_replace_shrink() {
+            let edit = edit_from_ctx(UpdateContext {
+                breaklines: &BrIndexes(vec![0, 12, 31]),
+                old_breaklines: &BrIndexes(vec![0, 12, 21]),
+                old_str: "Hello World!\ndgsadhasgjdhasgdjh\nAppleJuice",
+                change: ChangeContext::Replace {
+                    start: GridIndex { row: 0, col: 5 },
+                    end: GridIndex { row: 1, col: 10 },
+                    text: "Welcome",
+                    inserted_br_indexes: &[],
+                },
+            });
+
+            let correct_edit = InputEdit {
+                start_byte: 5,
+                start_position: Point { row: 0, column: 5 },
+                old_end_byte: 23,
+                old_end_position: Point { row: 1, column: 10 },
+                new_end_byte: 12,
+                new_end_position: Point { row: 0, column: 12 },
+            };
+
+            assert_eq!(edit, correct_edit);
+        }
+
+        #[test]
+        fn edit_ctx_replace_grow() {
+            //let result = "HelloWelcome\narld!\ndgsadhasgjdhasgdjh\nAppleJuice";
+            let edit = edit_from_ctx(UpdateContext {
+                breaklines: &BrIndexes(vec![0, 12, 31]),
+                old_breaklines: &BrIndexes(vec![0, 12, 21]),
+                old_str: "Hello World!\ndgsadhasgjdhasgdjh\nAppleJuice",
+                change: ChangeContext::Replace {
+                    start: GridIndex { row: 0, col: 5 },
+                    end: GridIndex { row: 0, col: 8 },
+                    text: "Welcome\na",
+                    inserted_br_indexes: &[12],
+                },
+            });
+
+            let correct_edit = InputEdit {
+                start_byte: 5,
+                start_position: Point { row: 0, column: 5 },
+                old_end_byte: 8,
+                old_end_position: Point { row: 0, column: 8 },
+                new_end_byte: 14,
+                new_end_position: Point { row: 1, column: 2 },
+            };
+
+            assert_eq!(edit, correct_edit);
+        }
+
+        #[test]
+        fn edit_ctx_replace_full() {
+            //let result = "HelloWelcome\narld!\ndgsadhasgjdhasgdjh\nAppleJuice";
+            let edit = edit_from_ctx(UpdateContext {
+                breaklines: &BrIndexes(vec![0, 10, 19, 20, 21, 39]),
+                old_breaklines: &BrIndexes(vec![0, 12, 31]),
+                old_str: "Hello World!\ndgsadhasgjdhasgdjh\nAppleJuice",
+                change: ChangeContext::ReplaceFull {
+                    text: "sdghfkjhsd\nasdasdas\n\n\nasdasdasdasdasdas\nasdasd",
+                },
+            });
+
+            let correct_edit = InputEdit {
+                start_byte: 0,
+                start_position: Point { row: 0, column: 0 },
+                old_end_byte: 42,
+                old_end_position: Point { row: 2, column: 10 },
+                new_end_byte: 46,
+                new_end_position: Point { row: 5, column: 6 },
+            };
+
+            assert_eq!(edit, correct_edit);
+        }
+    }
+}
