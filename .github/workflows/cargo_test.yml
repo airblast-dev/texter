@@ -7,7 +7,7 @@ on:
     types: []
 
 jobs:
-  cargo_test:
+  tests:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -15,4 +15,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test --all-features
+      - name: Quick Lint
+        run: cargo check --all-features
+      - name: Lint
+        run: cargo clippy --all-features
+      - name: Tests
+        run: cargo test --all-features
+      - name: Machete
+        uses: bnjbvr/cargo-machete@main
+        
