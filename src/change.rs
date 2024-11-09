@@ -180,21 +180,16 @@ impl GridIndex {
 
 fn normalize_non_last_row(base_line: &str) -> &str {
     // TODO: add checks for the behavior.
-    match base_line.as_bytes() {
+    let eol_len = match base_line.as_bytes() {
         // This pattern should come first as the following pattern could cause an EOL to be
         // included.
-        // SAFETY: Since the provided range is based on the length of the str - EOL bytes,
-        // worst we can get is an empty str. We are only matching on ascii character bytes,
-        // and any byte of a multibyte UTF8 character cannot match with any ascii byte.
-        [.., b'\r', b'\n'] => unsafe {
-            str::from_utf8_unchecked(base_line.as_bytes().get_unchecked(..base_line.len() - 2))
-        },
-        // SAFETY: Since the provided range is based on the length of the str - EOL bytes,
-        // worst we can get is an empty str. We are only matching on ascii character bytes,
-        // and any byte of a multibyte UTF8 character cannot match with any ascii byte.
-        [.., b'\n' | b'\r'] => unsafe {
-            str::from_utf8_unchecked(base_line.as_bytes().get_unchecked(..base_line.len() - 1))
-        },
-        _ => base_line,
-    }
+        [.., b'\r', b'\n'] => 2,
+        [.., b'\n' | b'\r'] => 1,
+        _ => 0,
+    };
+
+    // SAFETY: Since the provided range is based on the length of the str - EOL bytes,
+    // worst we can get is an empty str. We are only matching on ascii character bytes,
+    // and any byte of a multibyte UTF8 character cannot match with any ascii byte.
+    unsafe { base_line.get_unchecked(..base_line.len() - eol_len) }
 }
