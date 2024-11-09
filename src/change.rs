@@ -178,6 +178,7 @@ impl GridIndex {
     }
 }
 
+#[inline]
 fn normalize_non_last_row(base_line: &str) -> &str {
     // TODO: add checks for the behavior.
     let eol_len = match base_line.as_bytes() {
@@ -189,7 +190,32 @@ fn normalize_non_last_row(base_line: &str) -> &str {
     };
 
     // SAFETY: Since the provided range is based on the length of the str - EOL bytes,
-    // worst we can get is an empty str. We are only matching on ascii character bytes,
+    // worst we can get is an empty str. We only matched on ascii character bytes,
     // and any byte of a multibyte UTF8 character cannot match with any ascii byte.
-    unsafe { base_line.get_unchecked(..base_line.len() - eol_len) }
+
+    let r = unsafe { base_line.get_unchecked(..base_line.len() - eol_len) };
+
+    // Using a debug assert as the line could be long.
+    debug_assert!(!r.contains(['\r', '\n']));
+    r
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_non_last_row;
+
+    #[test]
+    fn non_last_row_trimming() {
+        for normalized in [
+            "Hello, World",
+            "Hello, World\r",
+            "Hello, World\r\n",
+            "Hello, World\n",
+        ]
+        .into_iter()
+        .map(normalize_non_last_row)
+        {
+            assert_eq!("Hello, World", normalized);
+        }
+    }
 }
