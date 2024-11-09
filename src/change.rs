@@ -1,7 +1,5 @@
 use core::str;
 
-use lsp_types::{Position, TextDocumentContentChangeEvent};
-
 use crate::core::text::Text;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -86,20 +84,53 @@ mod ts {
     }
 }
 
-impl From<Position> for GridIndex {
-    fn from(value: Position) -> Self {
-        GridIndex {
-            row: value.line as usize,
-            col: value.character as usize,
+#[cfg(feature = "lsp-types")]
+mod lspt {
+    use lsp_types::{Position, TextDocumentContentChangeEvent};
+
+    use super::{Change, GridIndex};
+    impl From<Position> for GridIndex {
+        fn from(value: Position) -> Self {
+            GridIndex {
+                row: value.line as usize,
+                col: value.character as usize,
+            }
         }
     }
-}
 
-impl From<GridIndex> for Position {
-    fn from(value: GridIndex) -> Self {
-        Position {
-            line: value.row as u32,
-            character: value.col as u32,
+    impl From<GridIndex> for Position {
+        fn from(value: GridIndex) -> Self {
+            Position {
+                line: value.row as u32,
+                character: value.col as u32,
+            }
+        }
+    }
+    impl From<TextDocumentContentChangeEvent> for Change {
+        fn from(value: TextDocumentContentChangeEvent) -> Self {
+            let Some(range) = value.range else {
+                return Change::ReplaceFull(value.text);
+            };
+
+            if value.text.is_empty() {
+                return Change::Delete {
+                    start: range.start.into(),
+                    end: range.end.into(),
+                };
+            }
+
+            if range.start == range.end {
+                return Change::Insert {
+                    at: range.start.into(),
+                    text: value.text,
+                };
+            }
+
+            Change::Replace {
+                start: range.start.into(),
+                end: range.end.into(),
+                text: value.text,
+            }
         }
     }
 }
@@ -165,33 +196,5 @@ fn normalize_non_last_row(base_line: &str) -> &str {
             str::from_utf8_unchecked(base_line.as_bytes().get_unchecked(..base_line.len() - 1))
         },
         _ => base_line,
-    }
-}
-
-impl From<TextDocumentContentChangeEvent> for Change {
-    fn from(value: TextDocumentContentChangeEvent) -> Self {
-        let Some(range) = value.range else {
-            return Change::ReplaceFull(value.text);
-        };
-
-        if value.text.is_empty() {
-            return Change::Delete {
-                start: range.start.into(),
-                end: range.end.into(),
-            };
-        }
-
-        if range.start == range.end {
-            return Change::Insert {
-                at: range.start.into(),
-                text: value.text,
-            };
-        }
-
-        Change::Replace {
-            start: range.start.into(),
-            end: range.end.into(),
-            text: value.text,
-        }
     }
 }
