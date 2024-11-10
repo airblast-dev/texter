@@ -94,11 +94,13 @@ mod ts {
                     old_end_position: position.into(),
                     new_end_position: Point {
                         row: position.row + inserted_br_indexes.len(),
+                        // -1 because bri includes the breakline
                         column: inserted_br_indexes
                             .last()
                             .map(|bri| text.len() - (bri - start_byte))
                             .unwrap_or(text.len())
-                            + position.col,
+                            + position.col
+                            - 1,
                     },
                 }
             }
@@ -120,7 +122,8 @@ mod ts {
                         if let [.., last] = inserted_br_indexes {
                             Point {
                                 row: start.row + inserted_br_indexes.len(),
-                                column: text.len() - (last - start_byte),
+                                // -1 because last includes the breakline
+                                column: text.len() - (last - start_byte) - 1,
                             }
                         } else {
                             Point {
@@ -204,7 +207,7 @@ mod tests {
                 old_end_byte: 13,
                 old_end_position: Point { row: 1, column: 0 },
                 new_end_byte: 19,
-                new_end_position: Point { row: 2, column: 3 },
+                new_end_position: Point { row: 2, column: 2 },
             };
 
             assert_eq!(edit, correct_edit);
@@ -257,7 +260,7 @@ mod tests {
                 old_end_byte: 8,
                 old_end_position: Point { row: 0, column: 8 },
                 new_end_byte: 14,
-                new_end_position: Point { row: 1, column: 2 },
+                new_end_position: Point { row: 1, column: 1 },
             };
 
             assert_eq!(edit, correct_edit);
