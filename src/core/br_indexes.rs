@@ -111,7 +111,7 @@ impl BrIndexes {
     #[inline(always)]
     pub fn is_last_row(&self, row: usize) -> bool {
         assert!(row < self.0.len());
-        self.0.len() == row + 1
+        self.0.len() - 1 == row
     }
 
     #[inline(always)]
