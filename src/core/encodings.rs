@@ -6,20 +6,11 @@ pub(crate) struct Encoding {
     pub exclusive: EncodingFn,
 }
 
-pub(crate) const UTF8: Encoding = Encoding {
-    inclusive: utf8::inclusive,
-    exclusive: utf8::exclusive,
-};
+pub(crate) const UTF8: fn(&str, usize) -> usize = utf8::exclusive;
 
-pub(crate) const UTF16: Encoding = Encoding {
-    inclusive: utf16::inclusive,
-    exclusive: utf16::exclusive,
-};
+pub(crate) const UTF16: fn(&str, usize) -> usize = utf16::exclusive;
 
-pub(crate) const UTF32: Encoding = Encoding {
-    inclusive: utf32::inclusive,
-    exclusive: utf32::exclusive,
-};
+pub(crate) const UTF32: fn(&str, usize) -> usize = utf32::exclusive;
 
 pub mod utf8 {
 

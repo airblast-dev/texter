@@ -34,7 +34,7 @@ impl Change {
         };
 
         start.normalize(text);
-        end.normalize_exclusive(text);
+        end.normalize(text);
     }
 }
 
@@ -137,24 +137,6 @@ mod lspt {
 
 impl GridIndex {
     pub fn normalize(&mut self, text: &mut Text) {
-        let br_indexes = &text.br_indexes;
-        let row_count = br_indexes.row_count();
-        if !br_indexes.is_last_row(self.row) {
-            let row_start = br_indexes.row_start(self.row);
-            let row_end = br_indexes.row_start(self.row + 1);
-            let base_line = &text.text[row_start..row_end];
-            let pure_line = normalize_non_last_row(base_line);
-
-            self.col = (text.encoding.inclusive)(pure_line, self.col);
-        }
-
-        assert!(
-            row_count >= self.row,
-            "Row value should be at most, row_count"
-        );
-    }
-
-    pub fn normalize_exclusive(&mut self, text: &mut Text) {
         let br_indexes = &mut text.br_indexes;
         if self.row == br_indexes.row_count() {
             br_indexes.insert_index(self.row, br_indexes.last_row());
@@ -168,7 +150,7 @@ impl GridIndex {
             let base_line = &text.text[row_start..row_end];
             let pure_line = normalize_non_last_row(base_line);
 
-            self.col = (text.encoding.exclusive)(pure_line, self.col);
+            self.col = (text.encoding)(pure_line, self.col);
         }
 
         assert!(
