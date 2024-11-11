@@ -149,7 +149,7 @@ impl GridIndex {
         let pure_line = if !br_indexes.is_last_row(self.row) {
             let row_end = br_indexes.row_start(self.row + 1);
             let base_line = &text.text[row_start..row_end];
-            normalize_non_last_row(base_line)
+            trim_eol_from_end(base_line)
         } else {
             &text.text[row_start..]
         };
@@ -164,7 +164,7 @@ impl GridIndex {
 }
 
 #[inline]
-fn normalize_non_last_row(base_line: &str) -> &str {
+fn trim_eol_from_end(base_line: &str) -> &str {
     // TODO: add checks for the behavior.
     let eol_len = match base_line.as_bytes() {
         // This pattern should come first as the following pattern could cause an EOL to be
@@ -186,7 +186,7 @@ fn normalize_non_last_row(base_line: &str) -> &str {
 
 #[cfg(test)]
 mod tests {
-    use super::normalize_non_last_row;
+    use super::trim_eol_from_end;
 
     #[test]
     fn non_last_row_trimming() {
@@ -197,7 +197,7 @@ mod tests {
             "Hello, World\n",
         ]
         .into_iter()
-        .map(normalize_non_last_row)
+        .map(trim_eol_from_end)
         {
             assert_eq!("Hello, World", normalized);
         }
