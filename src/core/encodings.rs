@@ -1,11 +1,5 @@
 pub(crate) type EncodingFn = fn(&str, usize) -> usize;
 
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct Encoding {
-    pub inclusive: EncodingFn,
-    pub exclusive: EncodingFn,
-}
-
 pub(crate) const UTF8: fn(&str, usize) -> usize = utf8::exclusive;
 
 pub(crate) const UTF16: fn(&str, usize) -> usize = utf16::exclusive;

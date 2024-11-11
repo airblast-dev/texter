@@ -5,7 +5,7 @@ use std::{
 
 use super::{
     br_indexes::BrIndexes,
-    encodings::{UTF16, UTF32, UTF8},
+    encodings::{EncodingFn, UTF16, UTF32, UTF8},
     lines::FastEOL,
 };
 
@@ -38,7 +38,7 @@ pub struct Text {
     /// When manually modifying the string outside of the provided methods, it is up to the user to
     /// assure that the `Text.br_indexes` are alligned with what is present in the string.
     pub text: String,
-    pub(crate) encoding: fn(&str, usize) -> usize,
+    pub(crate) encoding: EncodingFn,
 }
 
 impl Debug for Text {
