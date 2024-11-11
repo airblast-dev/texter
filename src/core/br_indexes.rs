@@ -2,8 +2,14 @@ use std::ops::Index;
 
 use super::lines::FastEOL;
 
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct BrIndexes(pub(crate) Vec<usize>);
+
+impl Default for BrIndexes {
+    fn default() -> Self {
+        Self(vec![0])
+    }
+}
 
 impl Clone for BrIndexes {
     fn clone(&self) -> Self {
