@@ -138,20 +138,23 @@ mod lspt {
 impl GridIndex {
     pub fn normalize(&mut self, text: &mut Text) {
         let br_indexes = &mut text.br_indexes;
-        if self.row == br_indexes.row_count() {
+        let mut row_count = br_indexes.row_count();
+        if self.row == row_count {
             br_indexes.insert_index(self.row, br_indexes.last_row());
             text.text.push('\n');
+            row_count += 1;
         }
-        let row_count = br_indexes.row_count();
 
-        if !br_indexes.is_last_row(self.row) {
-            let row_start = br_indexes.row_start(self.row);
+        let row_start = br_indexes.row_start(self.row);
+        let pure_line = if !br_indexes.is_last_row(self.row) {
             let row_end = br_indexes.row_start(self.row + 1);
             let base_line = &text.text[row_start..row_end];
-            let pure_line = normalize_non_last_row(base_line);
+            normalize_non_last_row(base_line)
+        } else {
+            &text.text[row_start..]
+        };
 
-            self.col = (text.encoding)(pure_line, self.col);
-        }
+        self.col = (text.encoding)(pure_line, self.col);
 
         assert!(
             row_count > self.row,
@@ -174,7 +177,6 @@ fn normalize_non_last_row(base_line: &str) -> &str {
     // SAFETY: Since the provided range is based on the length of the str - EOL bytes,
     // worst we can get is an empty str. We only matched on ascii character bytes,
     // and any byte of a multibyte UTF8 character cannot match with any ascii byte.
-
     let r = unsafe { base_line.get_unchecked(..base_line.len() - eol_len) };
 
     // Using a debug assert as the line could be long.
