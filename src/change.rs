@@ -1,6 +1,6 @@
 use core::str;
 
-use crate::core::text::Text;
+use crate::core::{br_indexes, text::Text};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Change {
@@ -146,7 +146,7 @@ impl GridIndex {
         }
 
         let row_start = br_indexes.row_start(self.row);
-        let pure_line = if !br_indexes.is_last_row(self.row) {
+        let pure_line = if !br_indexes.is_last_row(self.row) && row_count > 1 {
             let row_end = br_indexes.row_start(self.row + 1);
             let base_line = &text.text[row_start..row_end];
             trim_eol_from_end(base_line)
@@ -154,12 +154,27 @@ impl GridIndex {
             &text.text[row_start..]
         };
 
-        self.col = (text.encoding)(pure_line, self.col);
+        self.col = (text.encoding[0])(pure_line, self.col);
 
         assert!(
             row_count > self.row,
             "Row value should be at most, row_count"
         );
+    }
+
+    pub fn denormalize(&mut self, text: &Text) {
+        let br_indexes = &text.br_indexes;
+        let row_count = br_indexes.row_count();
+        let row_start = br_indexes.row_start(self.row);
+        let pure_line = if !br_indexes.is_last_row(self.row) && row_count > 1 {
+            let row_end = br_indexes.row_start(self.row + 1);
+            let base_line = &text.text[row_start..row_end];
+            trim_eol_from_end(base_line)
+        } else {
+            &text.text[row_start..]
+        };
+
+        self.col = (text.encoding[1])(pure_line, self.col);
     }
 }
 
