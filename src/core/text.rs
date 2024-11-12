@@ -3,6 +3,8 @@ use std::{
     fmt::{Debug, Display},
 };
 
+use tracing::{debug, error, instrument};
+
 use super::{
     br_indexes::BrIndexes,
     encodings::{EncodingFn, EncodingFns, UTF16, UTF32, UTF8},
@@ -87,8 +89,10 @@ impl Text {
         }
     }
 
+    #[instrument(skip(change, updateable))]
     pub fn update<U: Updateable, C: Into<Change>>(&mut self, change: C, updateable: &mut U) {
         let mut change = change.into();
+        debug!("change={:?}", change);
         change.normalize(self);
         self.old_br_indexes.clone_from(&self.br_indexes);
         match change {
@@ -213,6 +217,8 @@ impl Text {
                 self.text = s;
             }
         }
+
+        debug!("text after update={:?}", self.text.as_str());
     }
 
     /// returns the nth row including the trailing line break if one if present

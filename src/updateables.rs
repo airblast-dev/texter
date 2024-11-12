@@ -1,11 +1,13 @@
+use tracing::instrument;
+
 use crate::{change::GridIndex, core::br_indexes::BrIndexes};
 
 #[derive(Clone, Debug)]
 pub enum ChangeContext<'a> {
     Insert {
-        inserted_br_indexes: &'a [usize],
         position: GridIndex,
         text: &'a str,
+        inserted_br_indexes: &'a [usize],
     },
     Delete {
         start: GridIndex,
@@ -136,6 +138,7 @@ mod ts {
                     },
                 }
             }
+            // TODO: probably broken
             ChangeContext::ReplaceFull { text } => InputEdit {
                 start_byte: 0,
                 old_end_byte: ctx.old_str.len(),
