@@ -53,6 +53,7 @@ where
 
 #[cfg(feature = "tree-sitter")]
 mod ts {
+    use tracing::{error, instrument};
     use tree_sitter::{InputEdit, Point, Tree};
 
     use super::{ChangeContext, UpdateContext, Updateable};
@@ -62,10 +63,12 @@ mod ts {
             self.edit(&edit_from_ctx(ctx));
         }
     }
+
+    #[instrument]
     pub(super) fn edit_from_ctx(ctx: UpdateContext) -> InputEdit {
         let old_br = ctx.old_breaklines;
         let new_br = ctx.breaklines;
-        match ctx.change {
+        let ie = match ctx.change {
             ChangeContext::Delete { start, end } => {
                 let start_byte = old_br.row_start(start.row) + start.col;
                 let end_byte = old_br.row_start(end.row) + end.col;
@@ -97,10 +100,9 @@ mod ts {
                         // -1 because bri includes the breakline
                         column: inserted_br_indexes
                             .last()
-                            .map(|bri| text.len() - (bri - start_byte))
-                            .unwrap_or(text.len())
-                            + position.col
-                            - 1,
+                            // TODO: test this code path
+                            .map(|bri| text.len() - (bri - start_byte) - 1)
+                            .unwrap_or(text.len() + position.col),
                     },
                 }
             }
@@ -148,7 +150,10 @@ mod ts {
                     column: text.len() - new_br.last_row(),
                 },
             },
-        }
+        };
+
+        error!("input_edit={:?}", ie);
+        ie
     }
 }
 
@@ -166,6 +171,7 @@ mod tests {
 
         #[test]
         fn edit_ctx_delete() {
+            // let old = "Hello World!\nd\nAppleJuice";
             let edit = edit_from_ctx(UpdateContext {
                 breaklines: &BrIndexes(vec![0, 12, 14]),
                 old_breaklines: &BrIndexes(vec![0, 12, 16, 20]),
@@ -215,9 +221,10 @@ mod tests {
 
         #[test]
         fn edit_ctx_replace_shrink() {
+            // old = "HelloWelcomedhasgdjh\nAppleJuice";
             let edit = edit_from_ctx(UpdateContext {
-                breaklines: &BrIndexes(vec![0, 12, 31]),
-                old_breaklines: &BrIndexes(vec![0, 12, 21]),
+                breaklines: &BrIndexes(vec![0, 20]),
+                old_breaklines: &BrIndexes(vec![0, 12, 31]),
                 old_str: "Hello World!\ndgsadhasgjdhasgdjh\nAppleJuice",
                 change: ChangeContext::Replace {
                     start: GridIndex { row: 0, col: 5 },
@@ -243,7 +250,7 @@ mod tests {
         fn edit_ctx_replace_grow() {
             //let result = "HelloWelcome\narld!\ndgsadhasgjdhasgdjh\nAppleJuice";
             let edit = edit_from_ctx(UpdateContext {
-                breaklines: &BrIndexes(vec![0, 12, 31]),
+                breaklines: &BrIndexes(vec![0, 12, 18, 39]),
                 old_breaklines: &BrIndexes(vec![0, 12, 21]),
                 old_str: "Hello World!\ndgsadhasgjdhasgdjh\nAppleJuice",
                 change: ChangeContext::Replace {
