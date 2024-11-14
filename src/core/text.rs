@@ -3,7 +3,7 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use tracing::{debug, instrument};
+use tracing::instrument;
 
 use super::{
     br_indexes::BrIndexes,

@@ -56,7 +56,7 @@ where
 
 #[cfg(feature = "tree-sitter")]
 mod ts {
-    use tracing::{info, instrument};
+    use tracing::info;
     use tree_sitter::{InputEdit, Point, Tree};
 
     use super::{ChangeContext, UpdateContext, Updateable};
