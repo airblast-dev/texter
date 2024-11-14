@@ -3,11 +3,11 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use tracing::{debug, error, instrument};
+use tracing::{debug, instrument};
 
 use super::{
     br_indexes::BrIndexes,
-    encodings::{EncodingFn, EncodingFns, UTF16, UTF32, UTF8},
+    encodings::{EncodingFns, UTF16, UTF32, UTF8},
     lines::FastEOL,
 };
 
@@ -52,6 +52,14 @@ impl Debug for Text {
 impl Display for Text {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.text)
+    }
+}
+
+impl PartialEq for Text {
+    fn eq(&self, other: &Self) -> bool {
+        self.encoding == other.encoding
+            && self.br_indexes == other.br_indexes
+            && self.text == other.text
     }
 }
 
