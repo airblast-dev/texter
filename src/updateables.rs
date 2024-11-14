@@ -55,7 +55,7 @@ where
 
 #[cfg(feature = "tree-sitter")]
 mod ts {
-    use tracing::{error, instrument};
+    use tracing::{info, instrument};
     use tree_sitter::{InputEdit, Point, Tree};
 
     use super::{ChangeContext, UpdateContext, Updateable};
@@ -102,7 +102,6 @@ mod ts {
                         // -1 because bri includes the breakline
                         column: inserted_br_indexes
                             .last()
-                            // TODO: test this code path
                             .map(|bri| text.len() - (bri - start_byte) - 1)
                             .unwrap_or(text.len() + position.col),
                     },
@@ -154,8 +153,7 @@ mod ts {
                 },
             },
         };
-
-        error!("input_edit={:?}", ie);
+        info!("{:?}", ie);
         ie
     }
 }
@@ -173,25 +171,75 @@ mod tests {
         };
 
         #[test]
-        fn edit_ctx_delete() {
-            // let old = "Hello World!\nd\nAppleJuice";
+        fn edit_ctx_delete_across_lines() {
+            // old_str: "HelJuice";
             let edit = edit_from_ctx(UpdateContext {
-                breaklines: &BrIndexes(vec![0, 12, 14]),
+                breaklines: &BrIndexes(vec![0]),
                 old_breaklines: &BrIndexes(vec![0, 12, 16, 20]),
                 old_str: "Hello World!\n123\nasd\nAppleJuice",
                 change: ChangeContext::Delete {
-                    start: GridIndex { row: 1, col: 0 },
-                    end: GridIndex { row: 2, col: 2 },
+                    start: GridIndex { row: 0, col: 3 },
+                    end: GridIndex { row: 3, col: 5 },
                 },
             });
 
             let correct_edit = InputEdit {
-                start_byte: 13,
-                start_position: Point { row: 1, column: 0 },
-                old_end_byte: 19,
-                old_end_position: Point { row: 2, column: 2 },
-                new_end_byte: 13,
-                new_end_position: Point { row: 1, column: 0 },
+                start_byte: 3,
+                start_position: Point { row: 0, column: 3 },
+                old_end_byte: 26,
+                old_end_position: Point { row: 3, column: 5 },
+                new_end_byte: 3,
+                new_end_position: Point { row: 0, column: 3 },
+            };
+
+            assert_eq!(edit, correct_edit);
+        }
+
+        #[test]
+        fn edit_ctx_delete_in_line_first_row() {
+            // let old = "Hello World!\nd\nAppleJuice";
+            let edit = edit_from_ctx(UpdateContext {
+                breaklines: &BrIndexes(vec![0, 8, 12, 20]),
+                old_breaklines: &BrIndexes(vec![0, 12, 16, 20]),
+                old_str: "Hello World!\n123\nasd\nAppleJuice",
+                change: ChangeContext::Delete {
+                    start: GridIndex { row: 0, col: 3 },
+                    end: GridIndex { row: 0, col: 7 },
+                },
+            });
+
+            let correct_edit = InputEdit {
+                start_byte: 3,
+                start_position: Point { row: 0, column: 3 },
+                old_end_byte: 7,
+                old_end_position: Point { row: 0, column: 7 },
+                new_end_byte: 3,
+                new_end_position: Point { row: 0, column: 3 },
+            };
+
+            assert_eq!(edit, correct_edit);
+        }
+
+        #[test]
+        fn edit_ctx_delete_in_line_last_row() {
+            // let old = "Hello World!\nd\nAppleJuice";
+            let edit = edit_from_ctx(UpdateContext {
+                breaklines: &BrIndexes(vec![0, 12, 16, 20]),
+                old_breaklines: &BrIndexes(vec![0, 12, 16, 20]),
+                old_str: "Hello World!\n123\nasd\nAppleJuice",
+                change: ChangeContext::Delete {
+                    start: GridIndex { row: 3, col: 3 },
+                    end: GridIndex { row: 3, col: 7 },
+                },
+            });
+
+            let correct_edit = InputEdit {
+                start_byte: 24,
+                start_position: Point { row: 3, column: 3 },
+                old_end_byte: 28,
+                old_end_position: Point { row: 3, column: 7 },
+                new_end_byte: 24,
+                new_end_position: Point { row: 3, column: 3 },
             };
 
             assert_eq!(edit, correct_edit);
@@ -200,8 +248,8 @@ mod tests {
         #[test]
         fn edit_ctx_insert() {
             let edit = edit_from_ctx(UpdateContext {
-                breaklines: &BrIndexes(vec![0, 12, 14]),
-                old_breaklines: &BrIndexes(vec![0, 12, 16, 20]),
+                breaklines: &BrIndexes(vec![0, 12, 16, 20]),
+                old_breaklines: &BrIndexes(vec![0, 12, 14]),
                 old_str: "Hello World!\nd\nAppleJuice",
                 change: ChangeContext::Insert {
                     inserted_br_indexes: &[16],
@@ -298,6 +346,152 @@ mod tests {
             };
 
             assert_eq!(edit, correct_edit);
+        }
+    }
+
+    mod mix {
+        use rstest::{fixture, rstest};
+        use tree_sitter::{InputEdit, Parser, Point, Tree};
+
+        use crate::{
+            change::{Change, GridIndex},
+            core::{br_indexes, text::Text},
+        };
+
+        const SAMPLE_HTML: &str = include_str!("sample.html");
+        const ATTRIBUTE_NAME_POS: Point = Point { row: 8, column: 57 };
+
+        #[fixture]
+        fn parser() -> Parser {
+            let mut p = Parser::new();
+            p.set_language(&tree_sitter_html::LANGUAGE.into()).unwrap();
+            p
+        }
+
+        #[fixture]
+        fn html_tree(mut parser: Parser) -> Tree {
+            parser.parse(SAMPLE_HTML, None).unwrap()
+        }
+
+        #[fixture]
+        fn blank_tree(mut parser: Parser) -> Tree {
+            parser.parse("", None).unwrap()
+        }
+
+        #[fixture]
+        fn html_text() -> Text {
+            Text::new(SAMPLE_HTML.to_string())
+        }
+
+        #[fixture]
+        fn blank_text() -> Text {
+            Text::new("".to_string())
+        }
+
+        #[rstest]
+        #[case::empty("")]
+        #[case::short("some-attr")]
+        #[case::long("some-attrasdasdasdasdasdasdasdasdasd")]
+        #[case::long_single_br("some-attrasdasdasdasdas\ndasdasdasdasd")]
+        #[case::long_multiple_br("some-attrasdas\ndasdasdasdasda\n\n\n\nsdas\n\nda\nsd\n")]
+        fn insert(#[case] inserted: &str, mut html_text: Text, mut html_tree: Tree) {
+            html_text.update(
+                Change::Insert {
+                    at: ATTRIBUTE_NAME_POS.into(),
+                    text: inserted.to_string(),
+                },
+                &mut html_tree,
+            );
+
+            let mut modified: String = SAMPLE_HTML.to_string();
+            modified.insert_str(
+                html_text.br_indexes.row_start(ATTRIBUTE_NAME_POS.row) + ATTRIBUTE_NAME_POS.column,
+                inserted,
+            );
+
+            let modified = Text::new(modified);
+
+            assert_eq!(html_text, modified);
+            let mut parser = parser();
+            let modified_tree = parser.parse(modified.text.as_str(), None).unwrap();
+            let updated_html = parser
+                .parse(html_text.text.as_str(), Some(&html_tree))
+                .unwrap();
+            let mut prev = 0;
+            for br in
+                (1..html_text.br_indexes.row_count()).map(|i| html_text.br_indexes.row_start(i))
+            {
+                for i in prev..br {
+                    let a = updated_html.root_node().descendant_for_byte_range(i, i);
+                    let b = modified_tree.root_node().descendant_for_byte_range(i, i);
+                    let (a, b) = match (a, b) {
+                        (Some(a), Some(b)) => (a, b),
+                        (None, None) => continue,
+                        _ => panic!("different result found"),
+                    };
+                    assert_eq!(a.kind_id(), b.kind_id());
+                    assert_eq!(a.is_named(), b.is_named());
+                    assert_eq!(
+                        a.utf8_text(html_text.text.as_bytes()),
+                        b.utf8_text(modified.text.as_bytes())
+                    );
+                    assert_eq!(a.to_sexp(), b.to_sexp());
+                }
+                prev = br;
+            }
+
+            assert_eq!(prev, modified.text.len());
+        }
+
+        #[rstest]
+        #[case::in_line(GridIndex { row: 1, col: 7 }, GridIndex {row: 1, col: 15})]
+        #[case::across_lines(GridIndex { row: 5, col: 7 }, GridIndex {row: 8, col: 7})]
+        fn delete(
+            #[case] start: GridIndex,
+            #[case] end: GridIndex,
+            mut html_text: Text,
+            mut html_tree: Tree,
+        ) {
+            let mut modified: String = SAMPLE_HTML.to_string();
+            modified.drain(
+                html_text.br_indexes.row_start(start.row) + start.col
+                    ..html_text.br_indexes.row_start(end.row) + end.col,
+            );
+
+            html_text.update(Change::Delete { start, end }, &mut html_tree);
+
+            let modified = Text::new(modified);
+
+            assert_eq!(html_text, modified);
+            let mut parser = parser();
+            let modified_tree = parser.parse(modified.text.as_str(), None).unwrap();
+            let updated_html = parser
+                .parse(html_text.text.as_str(), Some(&html_tree))
+                .unwrap();
+            let mut prev = 0;
+            for br in
+                (1..html_text.br_indexes.row_count()).map(|i| html_text.br_indexes.row_start(i))
+            {
+                for i in prev..br {
+                    let a = updated_html.root_node().descendant_for_byte_range(i, i);
+                    let b = modified_tree.root_node().descendant_for_byte_range(i, i);
+                    let (a, b) = match (a, b) {
+                        (Some(a), Some(b)) => (a, b),
+                        (None, None) => continue,
+                        _ => panic!("different result found"),
+                    };
+                    assert_eq!(a.kind_id(), b.kind_id());
+                    assert_eq!(a.is_named(), b.is_named());
+                    assert_eq!(
+                        a.utf8_text(html_text.text.as_bytes()),
+                        b.utf8_text(modified.text.as_bytes())
+                    );
+                    assert_eq!(a.to_sexp(), b.to_sexp());
+                }
+                prev = br;
+            }
+
+            assert_eq!(prev, modified.text.len());
         }
     }
 }
