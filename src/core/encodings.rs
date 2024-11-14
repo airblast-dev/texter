@@ -9,17 +9,14 @@ pub(crate) const UTF32: EncodingFns = [utf32::to, utf32::from];
 
 pub mod utf8 {
 
-    use super::{between_code_points, char_oob};
+    use super::between_code_points;
 
     #[inline]
     pub(super) fn to(s: &str, nth: usize) -> usize {
-        if s.len() < nth {
-            char_oob(s.len(), nth);
-        };
-        if !s.is_char_boundary(nth) {
+        if !s.is_char_boundary(nth) && s.len() < nth {
             between_code_points();
         }
-        nth
+        nth.min(s.len())
     }
 
     #[inline]
@@ -29,7 +26,7 @@ pub mod utf8 {
 }
 
 pub mod utf16 {
-    use super::{between_code_points, char_oob};
+    use super::between_code_points;
 
     /// Converts UTF16 indexes to UTF8 indexes but also allows code point + 1 to be used in range operations.
     pub(super) fn to(s: &str, nth: usize) -> usize {
@@ -50,11 +47,7 @@ pub mod utf16 {
             }
         }
 
-        if total_code_points + 1 == nth {
-            return nth;
-        }
-
-        char_oob(total_code_points, nth)
+        nth.min(s.len())
     }
 
     pub(super) fn from(s: &str, col: usize) -> usize {
