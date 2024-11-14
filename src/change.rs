@@ -1,6 +1,6 @@
 use core::str;
 
-use crate::core::{br_indexes, text::Text};
+use crate::core::text::Text;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Change {

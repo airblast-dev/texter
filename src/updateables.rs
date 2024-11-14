@@ -48,6 +48,7 @@ impl<'a, T> Updateable for T
 where
     T: 'a + FnMut(UpdateContext),
 {
+    #[instrument(skip(self))]
     fn update(&mut self, ctx: UpdateContext) {
         self(ctx)
     }
@@ -66,7 +67,6 @@ mod ts {
         }
     }
 
-    #[instrument]
     pub(super) fn edit_from_ctx(ctx: UpdateContext) -> InputEdit {
         let old_br = ctx.old_breaklines;
         let new_br = ctx.breaklines;
@@ -349,7 +349,8 @@ mod tests {
         }
     }
 
-    mod mix {
+    #[cfg(feature = "tree-sitter")]
+    mod tree_sitter {
         use rstest::{fixture, rstest};
         use tree_sitter::{InputEdit, Parser, Point, Tree};
 
