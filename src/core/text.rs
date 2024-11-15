@@ -106,37 +106,12 @@ impl Text {
         let (start, end) = change.range();
         let row_start_index = self.nth_row(start.row);
         let row_end_index = self.nth_row(end.row);
+        let start_byte = row_start_index + start.col;
+        let end_byte = row_end_index + end.col;
+        let byte_range = start_byte..end_byte;
         match change {
             Change::Delete { .. } => {
-                let (br_offset, drain_range) = 't: {
-                    let (row_start, col_start, row_end, col_end) =
-                        (row_start_index, start.col, row_end_index, end.col);
-                    let drain_range = row_start + col_start..row_end + col_end;
-
-                    // this isnt just handling a common case, it also avoids an overflow below
-                    //
-                    // when subtracting with the end column, and adding the start column, things
-                    // are fine since end column > start column which means it cannot overflow.
-                    //
-                    // However when the change is inside a line (start.row == end.row) and the row is
-                    // also in the last line, we end up with a possible overflow since the column
-                    // end should not be included in the offsets.
-                    if start.row == end.row {
-                        break 't (col_end - col_start, drain_range);
-                    }
-
-                    let mut br_offset = row_end - row_start;
-
-                    // if the deleted characters are on the last row, they should not be included
-                    // when updating the break line indexes
-                    if !self.br_indexes.is_last_row(end.row) {
-                        br_offset += col_end;
-                    }
-
-                    br_offset -= col_start;
-
-                    (br_offset, drain_range)
-                };
+                let br_offset = end_byte - start_byte;
 
                 self.br_indexes.remove_indexes(start.row, end.row);
                 self.br_indexes.sub_offsets(start.row, br_offset);
@@ -148,12 +123,10 @@ impl Text {
                     old_str: self.text.as_str(),
                 });
 
-                self.text.drain(drain_range);
+                self.text.drain(byte_range);
             }
             Change::Insert { text, .. } => {
-                let insertion_index = row_end_index + end.col;
-
-                let br_indexes = FastEOL::new(&text).map(|i| i + insertion_index);
+                let br_indexes = FastEOL::new(&text).map(|i| i + end_byte);
                 self.br_indexes.add_offsets(end.row, text.len());
                 let inserted_br_indexes = {
                     let r = self.br_indexes.insert_indexes(end.row + 1, br_indexes);
@@ -172,17 +145,11 @@ impl Text {
                     old_str: self.text.as_str(),
                 });
 
-                self.text.insert_str(insertion_index, &text);
+                self.text.insert_str(end_byte, &text);
             }
             Change::Replace { text, .. } => {
-                let replace_start_col = start.col;
-                let replace_end_col = end.col;
-                let old_len =
-                    row_end_index + replace_end_col - (row_start_index + replace_start_col);
+                let old_len = end_byte - start_byte;
                 let new_len = text.len();
-
-                let start_index = row_start_index + replace_start_col;
-                let end_index = row_end_index + replace_end_col;
 
                 match old_len.cmp(&new_len) {
                     Ordering::Less => self.br_indexes.add_offsets(end.row, new_len - old_len),
@@ -194,7 +161,7 @@ impl Text {
                     let r = self.br_indexes.replace_indexes(
                         start.row,
                         end.row,
-                        FastEOL::new(&text).map(|bri| bri + start_index),
+                        FastEOL::new(&text).map(|bri| bri + start_byte),
                     );
                     // SAFETY: BrIndexes::replace_indexes already validated the input.
                     unsafe { self.br_indexes.0.get_unchecked(r) }
@@ -212,7 +179,7 @@ impl Text {
                     old_str: self.text.as_str(),
                 });
 
-                self.text.replace_range(start_index..end_index, &text);
+                self.text.replace_range(byte_range, &text);
             }
             Change::ReplaceFull(s) => {
                 self.br_indexes = BrIndexes::new(&s);
