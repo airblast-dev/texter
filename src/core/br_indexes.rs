@@ -1,4 +1,4 @@
-use std::ops::{Deref, DerefMut, Index};
+use std::ops::Index;
 
 use super::lines::FastEOL;
 
