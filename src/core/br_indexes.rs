@@ -1,4 +1,4 @@
-use std::ops::{Deref, Index};
+use std::ops::{Deref, DerefMut, Index};
 
 use super::lines::FastEOL;
 
@@ -25,13 +25,6 @@ impl Clone for BrIndexes {
 impl<S: AsRef<[usize]>> PartialEq<S> for BrIndexes {
     fn eq(&self, other: &S) -> bool {
         self.0 == other.as_ref()
-    }
-}
-
-impl Deref for BrIndexes {
-    type Target = [usize];
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
@@ -62,10 +55,10 @@ impl BrIndexes {
         self.0[row] + (row != 0) as usize
     }
 
-    #[inline]
     /// Inserts the provided indexes at the provided position.
     ///
     /// Returns a slice of the inserted indexes.
+    #[inline]
     pub(crate) fn insert_indexes<I: Iterator<Item = usize>>(
         &mut self,
         at: usize,
@@ -89,6 +82,7 @@ impl BrIndexes {
         self.0.drain(start + 1..=end);
     }
 
+    #[inline]
     pub(crate) fn replace_indexes<I: Iterator<Item = usize>>(
         &mut self,
         start: usize,
