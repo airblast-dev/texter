@@ -1,6 +1,8 @@
+use core::str;
 use std::{
     cmp::Ordering,
     fmt::{Debug, Display},
+    ops::Range,
 };
 
 use tracing::instrument;
@@ -179,7 +181,65 @@ impl Text {
                     old_str: self.text.as_str(),
                 });
 
-                self.text.replace_range(byte_range, &text);
+                // String::replace_range contains quite a bit of checks that we do not need.
+                // It also internally uses splicing, which (probably) causes the elements to be
+                // moved quite a bit when the replacing string exceeds the replaced str length.
+                fn fast_replace_range(text: &mut String, range: Range<usize>, s: &str) {
+                    let len = text.len();
+                    assert!(text.is_char_boundary(range.start));
+                    assert!(text.is_char_boundary(range.end));
+                    assert!(range.start <= range.end);
+                    let v = unsafe { text.as_mut_vec() };
+                    let range_dif = range.end - range.start;
+                    if range_dif < s.len() {
+                        v.reserve(s.len() - range_dif);
+                    }
+                    let v_ptr = v.as_mut_ptr();
+                    // SAFETY: We checked the range end is a char boundary which also means it is
+                    // safe to offset as it also means it is in bounds.
+                    let end_ptr = unsafe { v_ptr.add(range.end) };
+
+                    // ideally we can remove the branch, but not sure how to do it without
+                    // introducing safety, or panic problems.
+                    let new_len = match range_dif.cmp(&s.len()) {
+                        Ordering::Less => {
+                            let dif = s.len() - range_dif;
+                            unsafe {
+                                // SAFETY: range start and end are a char boundary.
+                                // We have already reserved the necessary space above so it is safe
+                                // to move over the contents.
+                                std::ptr::copy(end_ptr, end_ptr.add(dif), len - range.end);
+                                len + dif
+                            }
+                        }
+                        Ordering::Greater => {
+                            let dif = range_dif - s.len();
+                            unsafe {
+                                // SAFETY: range start and end are a char boundary.
+                                // Since we are subtracting the new str's len from end - start, it
+                                // cannot point to out of bounds.
+                                std::ptr::copy(end_ptr, end_ptr.sub(dif), len - range.end);
+                                len - dif
+                            }
+                        }
+                        Ordering::Equal => len,
+                    };
+
+                    unsafe {
+                        // SAFETY: range start is in a char boundary, we have already reserved
+                        // space if needed, and moved over the old contents.
+                        std::ptr::copy_nonoverlapping(s.as_ptr(), v_ptr.add(range.start), s.len());
+                        // SAFETY: all of the values of the inner Vec is now initialized
+                        v.set_len(new_len);
+                    };
+
+                    // since the length of the string could be very long, we use debug_assert.
+                    // the assertions at the start of the function already require that the
+                    // following assertion is true. just another check to be sure.
+                    debug_assert!(str::from_utf8(v).is_ok());
+                }
+
+                fast_replace_range(&mut self.text, byte_range, text.as_str());
             }
             Change::ReplaceFull(s) => {
                 self.br_indexes = BrIndexes::new(&s);
