@@ -352,11 +352,11 @@ mod tests {
     #[cfg(feature = "tree-sitter")]
     mod tree_sitter {
         use rstest::{fixture, rstest};
-        use tree_sitter::{InputEdit, Parser, Point, Tree};
+        use tree_sitter::{Parser, Point, Tree};
 
         use crate::{
             change::{Change, GridIndex},
-            core::{br_indexes, text::Text},
+            core::text::Text,
         };
 
         const SAMPLE_HTML: &str = include_str!("sample.html");
