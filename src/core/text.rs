@@ -102,14 +102,15 @@ impl Text {
         let mut change = change.into();
         change.normalize(self);
         self.old_br_indexes.clone_from(&self.br_indexes);
+
+        let (start, end) = change.range();
+        let row_start_index = self.nth_row(start.row);
+        let row_end_index = self.nth_row(end.row);
         match change {
-            Change::Delete { start, end } => {
+            Change::Delete { .. } => {
                 let (br_offset, drain_range) = 't: {
-                    let (row_start, col_start, row_end, col_end) = {
-                        let row_start_index = self.nth_row(start.row);
-                        let row_end_index = self.nth_row(end.row);
-                        (row_start_index, start.col, row_end_index, end.col)
-                    };
+                    let (row_start, col_start, row_end, col_end) =
+                        (row_start_index, start.col, row_end_index, end.col);
                     let drain_range = row_start + col_start..row_end + col_end;
 
                     // this isnt just handling a common case, it also avoids an overflow below
@@ -149,22 +150,21 @@ impl Text {
 
                 self.text.drain(drain_range);
             }
-            Change::Insert { at, text } => {
-                let start_br = self.nth_row(at.row);
-                let insertion_index = at.col + start_br;
+            Change::Insert { text, .. } => {
+                let insertion_index = row_end_index + end.col;
 
                 let br_indexes = FastEOL::new(&text).map(|i| i + insertion_index);
-                self.br_indexes.add_offsets(at.row, text.len());
+                self.br_indexes.add_offsets(end.row, text.len());
                 let inserted_br_indexes = {
-                    let r = self.br_indexes.insert_indexes(at.row + 1, br_indexes);
+                    let r = self.br_indexes.insert_indexes(end.row + 1, br_indexes);
                     // SAFETY: BrIndexes::insert_indexes already validated the input.
-                    unsafe { &self.br_indexes.get_unchecked(r) }
+                    unsafe { &self.br_indexes.0.get_unchecked(r) }
                 };
 
                 updateable.update(UpdateContext {
                     change: ChangeContext::Insert {
                         inserted_br_indexes,
-                        position: at,
+                        position: end,
                         text: text.as_str(),
                     },
                     breaklines: &self.br_indexes,
@@ -174,16 +174,15 @@ impl Text {
 
                 self.text.insert_str(insertion_index, &text);
             }
-            Change::Replace { start, end, text } => {
-                let start_br = self.nth_row(start.row);
-                let end_br = self.nth_row(end.row);
+            Change::Replace { text, .. } => {
                 let replace_start_col = start.col;
                 let replace_end_col = end.col;
-                let old_len = end_br + replace_end_col - (start_br + replace_start_col);
+                let old_len =
+                    row_end_index + replace_end_col - (row_start_index + replace_start_col);
                 let new_len = text.len();
 
-                let start_index = start_br + replace_start_col;
-                let end_index = end_br + replace_end_col;
+                let start_index = row_start_index + replace_start_col;
+                let end_index = row_end_index + replace_end_col;
 
                 match old_len.cmp(&new_len) {
                     Ordering::Less => self.br_indexes.add_offsets(end.row, new_len - old_len),
@@ -197,7 +196,8 @@ impl Text {
                         end.row,
                         FastEOL::new(&text).map(|bri| bri + start_index),
                     );
-                    unsafe { self.br_indexes.get_unchecked(r) }
+                    // SAFETY: BrIndexes::replace_indexes already validated the input.
+                    unsafe { self.br_indexes.0.get_unchecked(r) }
                 };
 
                 updateable.update(UpdateContext {

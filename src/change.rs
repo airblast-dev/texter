@@ -36,12 +36,26 @@ impl Change {
         start.normalize(text);
         end.normalize(text);
     }
+
+    #[inline(always)]
+    pub(crate) fn range(&self) -> (GridIndex, GridIndex) {
+        match self {
+            Change::Replace { start, end, .. } => (*start, *end),
+            Change::Insert { at, .. } => (GridIndex::BASE_GRID_INDEX, *at),
+            Change::Delete { start, end } => (*start, *end),
+            Change::ReplaceFull(_) => (GridIndex::BASE_GRID_INDEX, GridIndex::BASE_GRID_INDEX),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct GridIndex {
     pub row: usize,
     pub col: usize,
+}
+
+impl GridIndex {
+    const BASE_GRID_INDEX: Self = Self { row: 0, col: 0 };
 }
 
 #[cfg(feature = "tree-sitter")]
