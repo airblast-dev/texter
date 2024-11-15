@@ -12,8 +12,16 @@ tracing = "0.1.40"
 [dev-dependencies]
 tree-sitter-html = "0.23.0"
 rstest = "0.23.0"
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
 default = []
 tree-sitter = ["dep:tree-sitter"]
 lsp-types = ["dep:lsp-types"]
+
+[[bench]]
+name = "main"
+harness = false
+
+[profile.bench]
+debug = true
