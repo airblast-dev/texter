@@ -1,4 +1,4 @@
-use std::ops::Index;
+use std::ops::{Deref, Index};
 
 use super::lines::FastEOL;
 
@@ -25,6 +25,13 @@ impl Clone for BrIndexes {
 impl<S: AsRef<[usize]>> PartialEq<S> for BrIndexes {
     fn eq(&self, other: &S) -> bool {
         self.0 == other.as_ref()
+    }
+}
+
+impl Deref for BrIndexes {
+    type Target = [usize];
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
