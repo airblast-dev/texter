@@ -101,7 +101,8 @@ impl Text {
 
     #[instrument(skip(change, updateable))]
     pub fn update<U: Updateable, C: Into<Change>>(&mut self, change: C, updateable: &mut U) {
-        let mut change = change.into();
+        // not sure why but my editor gets confused without specifying the type
+        let mut change: Change = change.into();
         change.normalize(self);
         self.old_br_indexes.clone_from(&self.br_indexes);
 
