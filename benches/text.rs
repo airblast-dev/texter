@@ -1,4 +1,4 @@
-use criterion::{criterion_group, BatchSize, Bencher, Criterion};
+use criterion::{criterion_group, BatchSize, Criterion};
 use texter::{
     change::{Change, GridIndex},
     core::text::Text,
