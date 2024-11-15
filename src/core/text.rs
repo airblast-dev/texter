@@ -157,7 +157,8 @@ impl Text {
                 self.br_indexes.add_offsets(at.row, text.len());
                 let inserted_br_indexes = {
                     let r = self.br_indexes.insert_indexes(at.row + 1, br_indexes);
-                    &self.br_indexes[r]
+                    // SAFETY: BrIndexes::insert_indexes already validated the input.
+                    unsafe { &self.br_indexes.get_unchecked(r) }
                 };
 
                 updateable.update(UpdateContext {
@@ -175,8 +176,8 @@ impl Text {
             }
             Change::Replace { start, end, text } => {
                 let start_br = self.nth_row(start.row);
-                let replace_start_col = start.col;
                 let end_br = self.nth_row(end.row);
+                let replace_start_col = start.col;
                 let replace_end_col = end.col;
                 let old_len = end_br + replace_end_col - (start_br + replace_start_col);
                 let new_len = text.len();
@@ -196,7 +197,7 @@ impl Text {
                         end.row,
                         FastEOL::new(&text).map(|bri| bri + start_index),
                     );
-                    &self.br_indexes[r]
+                    unsafe { self.br_indexes.get_unchecked(r) }
                 };
 
                 updateable.update(UpdateContext {
