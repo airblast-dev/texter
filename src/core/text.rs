@@ -200,6 +200,10 @@ impl Text {
                     // safe to offset as it also means it is in bounds.
                     let end_ptr = unsafe { v_ptr.add(range.end) };
 
+                    // In case this panics and it is attempted to be read through unsafe code we
+                    // dont want to expose possibly invalid UTF-8. 
+                    unsafe { v.set_len(0) };
+
                     // ideally we can remove the branch, but not sure how to do it without
                     // introducing safety, or panic problems.
                     let new_len = match range_dif.cmp(&s.len()) {
