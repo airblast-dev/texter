@@ -2,6 +2,8 @@ use std::iter::FusedIterator;
 
 use memchr::{memchr2_iter, Memchr2};
 
+use crate::utils::trim_eol_from_end;
+
 #[derive(Clone, Debug)]
 pub(crate) struct FastEOL<'a> {
     haystack: &'a [u8],
@@ -68,9 +70,58 @@ impl Iterator for FastEOL<'_> {
 
 impl FusedIterator for FastEOL<'_> {}
 
+#[derive(Clone, Debug)]
+pub struct TextLines<'a> {
+    lf_indexes: &'a [usize],
+    s: &'a str,
+    cursor: usize,
+}
+
+impl<'a> TextLines<'a> {
+    pub(crate) fn new(s: &'a str, lfs: &'a [usize]) -> TextLines<'a> {
+        if let Some(l) = lfs.last() {
+            // panic if the content is out of sync
+            // we do not do full checks as it makes things very slow
+            assert!(lfs.is_sorted_by(|a, b| a < b));
+            assert!(*l < s.len() || *l == 0);
+        }
+        Self {
+            lf_indexes: lfs,
+            s,
+            cursor: 0,
+        }
+    }
+}
+
+impl<'a> Iterator for TextLines<'a> {
+    type Item = &'a str;
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut start = *self.lf_indexes.get(self.cursor)?;
+
+        start += (start != 0) as usize;
+        let end = self
+            .lf_indexes
+            .get(self.cursor + 1)
+            .copied()
+            .unwrap_or(self.s.len());
+
+        self.cursor += 1;
+
+        Some(trim_eol_from_end(&self.s[start..end]))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let b = self.lf_indexes.len() - self.cursor;
+        (b, Some(b))
+    }
+}
+
+impl FusedIterator for TextLines<'_> {}
+impl ExactSizeIterator for TextLines<'_> {}
+
 #[cfg(test)]
 mod tests {
-    use super::FastEOL;
+    use super::{FastEOL, TextLines};
 
     #[test]
     fn br() {
@@ -98,5 +149,20 @@ mod tests {
         let hs = "\r\r\r\n123\r45678\r\n910\n123\r123\n123123\n\r\r";
         let lines: Vec<_> = FastEOL::new(hs).collect();
         assert_eq!(lines, [0, 1, 3, 7, 14, 18, 22, 26, 33, 34, 35]);
+    }
+
+    #[test]
+    fn text_lines() {
+        let s = "abc\n\r123\n\nbasdasd\n\n\n";
+        let indexes = &[0, 3, 4, 8, 9, 17, 18, 19];
+        let mut lines = TextLines::new(s, indexes);
+        assert_eq!(lines.next(), Some("abc"));
+        assert_eq!(lines.next(), Some(""));
+        assert_eq!(lines.next(), Some("123"));
+        assert_eq!(lines.next(), Some(""));
+        assert_eq!(lines.next(), Some("basdasd"));
+        assert_eq!(lines.next(), Some(""));
+        assert_eq!(lines.next(), Some(""));
+        assert_eq!(lines.next(), Some(""));
     }
 }

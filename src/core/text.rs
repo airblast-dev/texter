@@ -10,7 +10,7 @@ use tracing::instrument;
 use super::{
     br_indexes::BrIndexes,
     encodings::{EncodingFns, UTF16, UTF32, UTF8},
-    lines::FastEOL,
+    lines::{FastEOL, TextLines},
 };
 
 use crate::{
@@ -263,6 +263,10 @@ impl Text {
     #[inline]
     fn nth_row(&self, r: usize) -> usize {
         self.br_indexes.row_start(r)
+    }
+
+    pub fn lines(&self) -> TextLines {
+        TextLines::new(self.text.as_str(), &self.br_indexes.0)
     }
 }
 
