@@ -191,5 +191,3 @@ impl GridIndex {
         self.col = (text.encoding[1])(pure_line, self.col);
     }
 }
-
-
