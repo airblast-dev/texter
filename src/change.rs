@@ -1,24 +1,26 @@
+use std::borrow::Cow;
+
 use crate::{core::text::Text, utils::trim_eol_from_end};
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Change {
+pub enum Change<'a> {
     Delete {
         start: GridIndex,
         end: GridIndex,
     },
     Insert {
         at: GridIndex,
-        text: String,
+        text: Cow<'a, str>,
     },
     Replace {
         start: GridIndex,
         end: GridIndex,
-        text: String,
+        text: Cow<'a, str>,
     },
-    ReplaceFull(String),
+    ReplaceFull(Cow<'a, str>),
 }
 
-impl Change {
+impl Change<'_> {
     /// Normalize the provided the grid index.
     ///
     /// When converting a type to [`Change`], the values may not strictly align with what is
@@ -44,6 +46,10 @@ impl Change {
             Change::ReplaceFull(_) => (GridIndex::BASE_GRID_INDEX, GridIndex::BASE_GRID_INDEX),
         }
     }
+}
+
+pub trait ToChange {
+    fn to_change<'a>(self) -> Change<'a>;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -118,10 +124,11 @@ mod lspt {
             }
         }
     }
-    impl From<TextDocumentContentChangeEvent> for Change {
+
+    impl From<TextDocumentContentChangeEvent> for Change<'static> {
         fn from(value: TextDocumentContentChangeEvent) -> Self {
             let Some(range) = value.range else {
-                return Change::ReplaceFull(value.text);
+                return Change::ReplaceFull(value.text.into());
             };
 
             if value.text.is_empty() {
@@ -134,14 +141,42 @@ mod lspt {
             if range.start == range.end {
                 return Change::Insert {
                     at: range.start.into(),
-                    text: value.text,
+                    text: value.text.into(),
                 };
             }
 
             Change::Replace {
                 start: range.start.into(),
                 end: range.end.into(),
-                text: value.text,
+                text: value.text.into(),
+            }
+        }
+    }
+
+    impl<'a> From<&'a TextDocumentContentChangeEvent> for Change<'a> {
+        fn from(value: &'a TextDocumentContentChangeEvent) -> Self {
+            let Some(range) = value.range else {
+                return Change::ReplaceFull((&value.text).into());
+            };
+
+            if value.text.is_empty() {
+                return Change::Delete {
+                    start: range.start.into(),
+                    end: range.end.into(),
+                };
+            }
+
+            if range.start == range.end {
+                return Change::Insert {
+                    at: range.start.into(),
+                    text: (&value.text).into(),
+                };
+            }
+
+            Change::Replace {
+                start: range.start.into(),
+                end: range.end.into(),
+                text: (&value.text).into(),
             }
         }
     }

@@ -399,7 +399,7 @@ mod tests {
             html_text.update(
                 Change::Insert {
                     at: ATTRIBUTE_NAME_POS.into(),
-                    text: inserted.to_string(),
+                    text: inserted.into(),
                 },
                 &mut html_tree,
             );

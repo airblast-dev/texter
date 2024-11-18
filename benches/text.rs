@@ -48,23 +48,23 @@ fn text(c: &mut Criterion) {
                         // Single character case.
                         Change::Insert {
                             at: GridIndex { row: 0, col: 0 },
-                            text: "c".to_string(),
+                            text: "c".into(),
                         },
                         Change::Insert {
                             at: GridIndex { row: 0, col: 0 },
-                            text: "\n".to_string(),
+                            text: "\n".into(),
                         },
                         Change::Insert {
                             at: GridIndex { row: 1, col: 0 },
-                            text: "ShortString".to_string(),
+                            text: "ShortString".into(),
                         },
                         Change::Insert {
                             at: GridIndex { row: 398, col: 51 },
-                            text: "LargeString\n".repeat(100),
+                            text: "LargeString\n".repeat(100).into(),
                         },
                         Change::Insert {
                             at: GridIndex { row: 398, col: 51 },
-                            text: "MediumString\n".repeat(10),
+                            text: "MediumString\n".repeat(10).into(),
                         },
                     ],
                 )
@@ -86,22 +86,22 @@ fn text(c: &mut Criterion) {
                         Change::Replace {
                             start: GridIndex { row: 0, col: 0 },
                             end: GridIndex { row: 955, col: 0 },
-                            text: text.text.clone(),
+                            text: text.text.as_str().into(),
                         },
                         Change::Replace {
                             start: GridIndex { row: 4, col: 0 },
                             end: GridIndex { row: 6, col: 0 },
-                            text: "Shrinking".to_string(),
+                            text: "Shrinking".into(),
                         },
                         Change::Replace {
                             start: GridIndex { row: 4, col: 0 },
                             end: GridIndex { row: 6, col: 0 },
-                            text: "Growing\n".repeat(20),
+                            text: "Growing\n".repeat(20).into(),
                         },
                         Change::Replace {
                             start: GridIndex { row: 6, col: 3 },
                             end: GridIndex { row: 6, col: 5 },
-                            text: "Simple".repeat(20),
+                            text: "Simple".repeat(20).into(),
                         },
                     ],
                 )
