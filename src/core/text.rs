@@ -690,8 +690,7 @@ mod tests {
         #[test]
         fn long_text_single_byte() {
             let mut t = Text::new(
-                "1234567\nABCD\nHELLO\nWORLD\nSOMELONGLINEFORTESTINGVARIOUSCASES\nAHAHHAHAH"
-                    .into(),
+                "1234567\nABCD\nHELLO\nWORLD\nSOMELONGLINEFORTESTINGVARIOUSCASES\nAHAHHAHAH".into(),
             );
 
             assert_eq!(t.br_indexes.0, [0, 7, 12, 18, 24, 59]);
