@@ -82,7 +82,8 @@ impl<'a> TextLines<'a> {
         if let Some(l) = lfs.last() {
             // panic if the content is out of sync
             // we do not do full checks as it makes things very slow
-            assert!(lfs.is_sorted_by(|a, b| a < b));
+            // this only checks if the content is out of sync in an obvious way
+            assert!(lfs.is_sorted());
             assert!(*l < s.len() || *l == 0);
         }
         Self {
