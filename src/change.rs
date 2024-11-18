@@ -1,5 +1,3 @@
-use core::str;
-
 use crate::{core::text::Text, utils::trim_eol_from_end};
 
 #[derive(Clone, Debug, PartialEq)]
