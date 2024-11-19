@@ -18,7 +18,7 @@ use crate::{
     updateables::{ChangeContext, UpdateContext, Updateable},
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Text {
     /// The EOL byte positions of the text.
     ///
@@ -43,12 +43,6 @@ pub struct Text {
     /// assure that the `Text.br_indexes` are alligned with what is present in the string.
     pub text: String,
     pub(crate) encoding: EncodingFns,
-}
-
-impl Debug for Text {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Breaklines: {:?}\n{:?}", self.br_indexes, self.text)
-    }
 }
 
 impl Display for Text {
