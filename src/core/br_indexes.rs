@@ -64,9 +64,11 @@ impl BrIndexes {
         at: usize,
         indexes: I,
     ) -> std::ops::Range<usize> {
-        let mut i = 0;
-        self.0.splice(at..at, indexes.inspect(|_| i += 1));
-        at..at + i
+        let old_len = self.0.len();
+        self.0.extend(indexes);
+        let new_len = self.0.len();
+        self.0[at..].rotate_right(new_len - old_len);
+        at..at + (new_len - old_len)
     }
 
     pub(crate) fn insert_index(&mut self, at: usize, index: usize) {
