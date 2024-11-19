@@ -14,7 +14,7 @@ use super::{
 };
 
 use crate::{
-    change::Change,
+    change::{ActionKind, Actionable, Change},
     updateables::{ChangeContext, UpdateContext, Updateable},
 };
 
@@ -255,6 +255,22 @@ impl Text {
                 self.text = s.to_string();
             }
         }
+    }
+
+    pub fn update_with_action<U: Updateable, A: Actionable + ?Sized>(
+        &mut self,
+        action: &mut A,
+        u: &mut U,
+    ) {
+        let action = action.to_change(self);
+        match action {
+            ActionKind::Once(ch) => self.update(ch, u),
+            ActionKind::Many(bx) => {
+                bx.into_vec().into_iter().for_each(|ch| {
+                    self.update(ch, u);
+                });
+            }
+        };
     }
 
     /// returns the nth row including the trailing line break if one if present

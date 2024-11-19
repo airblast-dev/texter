@@ -21,6 +21,11 @@ pub enum Change<'a> {
 }
 
 impl Change<'_> {
+    const EMPTY: Change<'static> = Change::Delete {
+        start: GridIndex::BASE_GRID_INDEX,
+        end: GridIndex::BASE_GRID_INDEX,
+    };
+
     /// Normalize the provided the grid index.
     ///
     /// When converting a type to [`Change`], the values may not strictly align with what is
@@ -48,8 +53,25 @@ impl Change<'_> {
     }
 }
 
-pub trait ToChange {
-    fn to_change<'a>(self) -> Change<'a>;
+/// An action to be transformed into a change or multiple changes.
+///
+/// Used in defining specific actions such deleting the following word from a position.
+pub trait Actionable {
+    fn to_change<'a>(&'a mut self, text: &Text) -> ActionKind<'a>;
+}
+
+// TODO: Probably should add more variants.
+pub enum ActionKind<'a> {
+    Once(Change<'a>),
+    Many(Box<[Change<'a>]>),
+}
+
+impl Actionable for Change<'_> {
+    fn to_change<'a>(&'a mut self, _: &Text) -> ActionKind<'a> {
+        let mut ch = Change::EMPTY;
+        std::mem::swap(self, &mut ch);
+        ActionKind::Once(ch)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
