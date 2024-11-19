@@ -1,5 +1,6 @@
 use core::str;
 use std::{
+    borrow::Cow,
     cmp::Ordering,
     fmt::{Debug, Display},
     ops::Range,
@@ -252,7 +253,13 @@ impl Text {
                     old_breaklines: &self.old_br_indexes,
                     old_str: self.text.as_str(),
                 });
-                self.text = s.to_string();
+                match s {
+                    Cow::Borrowed(s) => {
+                        self.text.clear();
+                        self.text.push_str(s);
+                    }
+                    Cow::Owned(s) => self.text = s,
+                };
             }
         }
     }
@@ -266,6 +273,7 @@ impl Text {
         match action {
             ActionKind::Once(ch) => self.update(ch, u),
             ActionKind::Many(bx) => {
+                // TODO: Remove Box<[...]>::into_vec once Box implements IntoIter in 2024 edition.
                 bx.into_vec().into_iter().for_each(|ch| {
                     self.update(ch, u);
                 });
