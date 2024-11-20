@@ -108,12 +108,7 @@ impl<'a> Iterator for TextLines<'a> {
         let mut start = *self.lf_indexes.get(n)?;
 
         start += (start != 0) as usize;
-        let end = self
-            .lf_indexes
-            .get(n + 1)
-            .copied()
-            .unwrap_or(self.s.len());
-
+        let end = self.lf_indexes.get(n + 1).copied().unwrap_or(self.s.len());
 
         Some(trim_eol_from_end(&self.s[start..end]))
     }

@@ -1,9 +1,9 @@
 mod utils;
 
-pub mod change;
-pub mod updateables;
-pub mod core;
 pub mod actions;
+pub mod change;
+pub mod core;
+pub mod updateables;
 
 #[cfg(feature = "lsp-types")]
 pub use lsp_types;
