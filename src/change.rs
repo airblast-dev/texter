@@ -1,6 +1,10 @@
 use std::borrow::Cow;
 
-use crate::{core::text::Text, utils::trim_eol_from_end};
+use crate::{
+    core::text::Text,
+    updateables::{ChangeContext, UpdateContext, Updateable},
+    utils::trim_eol_from_end,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Change<'a> {
@@ -78,6 +82,49 @@ impl Actionable for Change<'_> {
 pub struct GridIndex {
     pub row: usize,
     pub col: usize,
+}
+
+impl Updateable for GridIndex {
+    fn update(&mut self, ctx: UpdateContext) {
+        match ctx.change {
+            ChangeContext::Insert {
+                position,
+                text,
+                inserted_br_indexes,
+            } => {
+                self.row += inserted_br_indexes.len();
+                let start_byte_index = ctx.old_breaklines.row_start(position.row) + position.col;
+                let last_lf = inserted_br_indexes
+                    .last()
+                    .copied()
+                    .map(|i| i - start_byte_index)
+                    .unwrap_or_default();
+                self.col = text.len() - last_lf;
+            }
+            ChangeContext::Delete { start, .. } => {
+                *self = start;
+            }
+            ChangeContext::Replace {
+                start,
+                text,
+                inserted_br_indexes,
+                ..
+            } => {
+                self.row += inserted_br_indexes.len();
+                let start_byte_index = ctx.old_breaklines.row_start(start.row) + start.col;
+                let last_lf = inserted_br_indexes
+                    .last()
+                    .copied()
+                    .map(|i| i - start_byte_index)
+                    .unwrap_or_default();
+                self.col = text.len() - last_lf;
+            }
+            ChangeContext::ReplaceFull { text } => {
+                self.row += ctx.breaklines.last_row();
+                self.col += text.len() - ctx.breaklines.row_start(self.row);
+            }
+        }
+    }
 }
 
 impl GridIndex {
