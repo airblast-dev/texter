@@ -1,7 +1,7 @@
-pub mod change;
-mod updateables;
 mod utils;
 
+pub mod change;
+pub mod updateables;
 pub mod core;
 pub mod actions;
 
