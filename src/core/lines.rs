@@ -97,16 +97,21 @@ impl<'a> TextLines<'a> {
 impl<'a> Iterator for TextLines<'a> {
     type Item = &'a str;
     fn next(&mut self) -> Option<Self::Item> {
-        let mut start = *self.lf_indexes.get(self.cursor)?;
+        let nth = self.nth(self.cursor);
+        self.cursor += 1;
+        nth
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        let mut start = *self.lf_indexes.get(n)?;
 
         start += (start != 0) as usize;
         let end = self
             .lf_indexes
-            .get(self.cursor + 1)
+            .get(n + 1)
             .copied()
             .unwrap_or(self.s.len());
 
-        self.cursor += 1;
 
         Some(trim_eol_from_end(&self.s[start..end]))
     }
