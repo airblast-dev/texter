@@ -15,7 +15,7 @@ use super::{
 };
 
 use crate::{
-    change::{ActionKind, Actionable, Change},
+    change::{ActionKind, Actionable, Change, GridIndex},
     updateables::{ChangeContext, UpdateContext, Updateable},
 };
 
@@ -101,151 +101,20 @@ impl Text {
         updateable: &mut U,
     ) {
         // not sure why but my editor gets confused without specifying the type
-        let mut change: Change = change.into();
-        change.normalize(self);
-        self.old_br_indexes.clone_from(&self.br_indexes);
+        let change: Change = change.into();
 
-        let (start, end) = change.range();
-        let row_start_index = self.nth_row(start.row);
-        let row_end_index = self.nth_row(end.row);
-        let start_byte = row_start_index + start.col;
-        let end_byte = row_end_index + end.col;
-        let byte_range = start_byte..end_byte;
         match change {
-            Change::Delete { .. } => {
-                let br_offset = end_byte - start_byte;
-
-                self.br_indexes.remove_indexes(start.row, end.row);
-                self.br_indexes.sub_offsets(start.row, br_offset);
-
-                updateable.update(UpdateContext {
-                    change: ChangeContext::Delete { start, end },
-                    breaklines: &self.br_indexes,
-                    old_breaklines: &self.old_br_indexes,
-                    old_str: self.text.as_str(),
-                });
-
-                self.text.drain(byte_range);
+            Change::Delete { start, end } => {
+                self.delete(start, end, updateable);
             }
-            Change::Insert { text, .. } => {
-                let br_indexes = FastEOL::new(&text).map(|i| i + end_byte);
-                self.br_indexes.add_offsets(end.row, text.len());
-                let inserted_br_indexes = {
-                    let r = self.br_indexes.insert_indexes(end.row + 1, br_indexes);
-                    // SAFETY: BrIndexes::insert_indexes already validated the input.
-                    unsafe { &self.br_indexes.0.get_unchecked(r) }
-                };
-
-                updateable.update(UpdateContext {
-                    change: ChangeContext::Insert {
-                        inserted_br_indexes,
-                        position: end,
-                        text: text.as_ref(),
-                    },
-                    breaklines: &self.br_indexes,
-                    old_breaklines: &self.old_br_indexes,
-                    old_str: self.text.as_str(),
-                });
-
-                self.text.insert_str(end_byte, &text);
+            Change::Insert { text, at } => {
+                self.insert(&text, at, updateable);
             }
-            Change::Replace { text, .. } => {
-                let old_len = end_byte - start_byte;
-                let new_len = text.len();
-
-                match old_len.cmp(&new_len) {
-                    Ordering::Less => self.br_indexes.add_offsets(end.row, new_len - old_len),
-                    Ordering::Greater => self.br_indexes.sub_offsets(end.row, old_len - new_len),
-                    Ordering::Equal => {}
-                }
-
-                let inserted = {
-                    let r = self.br_indexes.replace_indexes(
-                        start.row,
-                        end.row,
-                        FastEOL::new(&text).map(|bri| bri + start_byte),
-                    );
-                    // SAFETY: BrIndexes::replace_indexes already validated the input.
-                    unsafe { self.br_indexes.0.get_unchecked(r) }
-                };
-
-                updateable.update(UpdateContext {
-                    change: ChangeContext::Replace {
-                        start,
-                        end,
-                        text: text.as_ref(),
-                        inserted_br_indexes: inserted,
-                    },
-                    breaklines: &self.br_indexes,
-                    old_breaklines: &self.old_br_indexes,
-                    old_str: self.text.as_str(),
-                });
-
-                // String::replace_range contains quite a bit of checks that we do not need.
-                // It also internally uses splicing, which (probably) causes the elements to be
-                // moved quite a bit when the replacing string exceeds the replaced str length.
-                fn fast_replace_range(text: &mut String, range: Range<usize>, s: &str) {
-                    let len = text.len();
-                    assert!(text.is_char_boundary(range.start));
-                    assert!(text.is_char_boundary(range.end));
-                    assert!(range.start <= range.end);
-                    let v = unsafe { text.as_mut_vec() };
-                    let range_dif = range.end - range.start;
-                    if range_dif < s.len() {
-                        v.reserve(s.len() - range_dif);
-                    }
-                    let v_ptr = v.as_mut_ptr();
-                    // SAFETY: We checked the range end is a char boundary which also means it is
-                    // safe to offset as it also means it is in bounds.
-                    let end_ptr = unsafe { v_ptr.add(range.end) };
-
-                    // In case this panics and it is attempted to be read through unsafe code we
-                    // dont want to expose possibly invalid UTF-8.
-                    unsafe { v.set_len(0) };
-
-                    // ideally we can remove the branch, but not sure how to do it without
-                    // introducing safety, or panic problems.
-                    let new_len = match range_dif.cmp(&s.len()) {
-                        Ordering::Less => {
-                            let dif = s.len() - range_dif;
-                            unsafe {
-                                // SAFETY: range start and end are a char boundary.
-                                // We have already reserved the necessary space above so it is safe
-                                // to move over the contents.
-                                std::ptr::copy(end_ptr, end_ptr.add(dif), len - range.end);
-                                len + dif
-                            }
-                        }
-                        Ordering::Greater => {
-                            let dif = range_dif - s.len();
-                            unsafe {
-                                // SAFETY: range start and end are a char boundary.
-                                // Since we are subtracting the new str's len from end - start, it
-                                // cannot point to out of bounds.
-                                std::ptr::copy(end_ptr, end_ptr.sub(dif), len - range.end);
-                                len - dif
-                            }
-                        }
-                        Ordering::Equal => len,
-                    };
-
-                    unsafe {
-                        // SAFETY: range start is in a char boundary, we have already reserved
-                        // space if needed, and moved over the old contents.
-                        std::ptr::copy_nonoverlapping(s.as_ptr(), v_ptr.add(range.start), s.len());
-                        // SAFETY: all of the values of the inner Vec is now initialized
-                        v.set_len(new_len);
-                    };
-
-                    // since the length of the string could be very long, we use debug_assert.
-                    // the assertions at the start of the function already require that the
-                    // following assertion is true. just another check to be sure.
-                    debug_assert!(str::from_utf8(v).is_ok());
-                }
-
-                fast_replace_range(&mut self.text, byte_range, text.as_ref());
+            Change::Replace { text, start, end } => {
+                self.replace(&text, start, end, updateable);
             }
             Change::ReplaceFull(s) => {
+                todo!("move to a function");
                 self.br_indexes = BrIndexes::new(&s);
                 updateable.update(UpdateContext {
                     change: ChangeContext::ReplaceFull { text: s.as_ref() },
@@ -262,6 +131,176 @@ impl Text {
                 };
             }
         }
+    }
+    #[inline]
+    pub fn delete<U: Updateable>(
+        &mut self,
+        mut start: GridIndex,
+        mut end: GridIndex,
+        updateable: &mut U,
+    ) {
+        self.update_prep();
+        start.normalize(self);
+        end.normalize(self);
+        let row_start_index = self.nth_row(start.row);
+        let row_end_index = self.nth_row(end.row);
+        let start_byte = row_start_index + start.col;
+        let end_byte = row_end_index + end.col;
+        let byte_range = start_byte..end_byte;
+        let br_offset = end_byte - start_byte;
+
+        self.br_indexes.remove_indexes(start.row, end.row);
+        self.br_indexes.sub_offsets(start.row, br_offset);
+
+        updateable.update(UpdateContext {
+            change: ChangeContext::Delete { start, end },
+            breaklines: &self.br_indexes,
+            old_breaklines: &self.old_br_indexes,
+            old_str: self.text.as_str(),
+        });
+
+        self.text.drain(byte_range);
+    }
+
+    #[inline]
+    pub fn insert<U: Updateable>(&mut self, s: &str, mut at: GridIndex, updateable: &mut U) {
+        self.update_prep();
+        at.normalize(self);
+        let row_end_index = self.nth_row(at.row);
+        let end_byte = row_end_index + at.col;
+        let br_indexes = FastEOL::new(s).map(|i| i + end_byte);
+        self.br_indexes.add_offsets(at.row, s.len());
+        let inserted_br_indexes = {
+            let r = self.br_indexes.insert_indexes(at.row + 1, br_indexes);
+            // SAFETY: BrIndexes::insert_indexes already validated the input.
+            unsafe { &self.br_indexes.0.get_unchecked(r) }
+        };
+
+        updateable.update(UpdateContext {
+            change: ChangeContext::Insert {
+                inserted_br_indexes,
+                position: at,
+                text: s,
+            },
+            breaklines: &self.br_indexes,
+            old_breaklines: &self.old_br_indexes,
+            old_str: self.text.as_str(),
+        });
+
+        self.text.insert_str(end_byte, s);
+    }
+
+    #[inline]
+    pub fn replace<U: Updateable>(
+        &mut self,
+        s: &str,
+        mut start: GridIndex,
+        mut end: GridIndex,
+        updateable: &mut U,
+    ) {
+        self.update_prep();
+        start.normalize(self);
+        end.normalize(self);
+        let row_start_index = self.nth_row(start.row);
+        let row_end_index = self.nth_row(end.row);
+        let start_byte = row_start_index + start.col;
+        let end_byte = row_end_index + end.col;
+        let byte_range = start_byte..end_byte;
+        let old_len = end_byte - start_byte;
+        let new_len = s.len();
+
+        match old_len.cmp(&new_len) {
+            Ordering::Less => self.br_indexes.add_offsets(end.row, new_len - old_len),
+            Ordering::Greater => self.br_indexes.sub_offsets(end.row, old_len - new_len),
+            Ordering::Equal => {}
+        }
+
+        let inserted = {
+            let r = self.br_indexes.replace_indexes(
+                start.row,
+                end.row,
+                FastEOL::new(s).map(|bri| bri + start_byte),
+            );
+            // SAFETY: BrIndexes::replace_indexes already validated the input.
+            unsafe { self.br_indexes.0.get_unchecked(r) }
+        };
+
+        updateable.update(UpdateContext {
+            change: ChangeContext::Replace {
+                start,
+                end,
+                text: s,
+                inserted_br_indexes: inserted,
+            },
+            breaklines: &self.br_indexes,
+            old_breaklines: &self.old_br_indexes,
+            old_str: self.text.as_str(),
+        });
+
+        // String::replace_range contains quite a bit of checks that we do not need.
+        // It also internally uses splicing, which (probably) causes the elements to be
+        // moved quite a bit when the replacing string exceeds the replaced str length.
+        #[inline(always)]
+        fn fast_replace_range(text: &mut String, range: Range<usize>, s: &str) {
+            let len = text.len();
+            assert!(text.is_char_boundary(range.start));
+            assert!(text.is_char_boundary(range.end));
+            assert!(range.start <= range.end);
+            let v = unsafe { text.as_mut_vec() };
+            let range_dif = range.end - range.start;
+            if range_dif < s.len() {
+                v.reserve(s.len() - range_dif);
+            }
+            let v_ptr = v.as_mut_ptr();
+            // SAFETY: We checked the range end is a char boundary which also means it is
+            // safe to offset as it also means it is in bounds.
+            let end_ptr = unsafe { v_ptr.add(range.end) };
+
+            // In case this panics and it is attempted to be read through unsafe code we
+            // dont want to expose possibly invalid UTF-8.
+            unsafe { v.set_len(0) };
+
+            // ideally we can remove the branch, but not sure how to do it without
+            // introducing safety, or panic problems.
+            let new_len = match range_dif.cmp(&s.len()) {
+                Ordering::Less => {
+                    let dif = s.len() - range_dif;
+                    unsafe {
+                        // SAFETY: range start and end are a char boundary.
+                        // We have already reserved the necessary space above so it is safe
+                        // to move over the contents.
+                        std::ptr::copy(end_ptr, end_ptr.add(dif), len - range.end);
+                        len + dif
+                    }
+                }
+                Ordering::Greater => {
+                    let dif = range_dif - s.len();
+                    unsafe {
+                        // SAFETY: range start and end are a char boundary.
+                        // Since we are subtracting the new str's len from end - start, it
+                        // cannot point to out of bounds.
+                        std::ptr::copy(end_ptr, end_ptr.sub(dif), len - range.end);
+                        len - dif
+                    }
+                }
+                Ordering::Equal => len,
+            };
+
+            unsafe {
+                // SAFETY: range start is in a char boundary, we have already reserved
+                // space if needed, and moved over the old contents.
+                std::ptr::copy_nonoverlapping(s.as_ptr(), v_ptr.add(range.start), s.len());
+                // SAFETY: all of the values of the inner Vec is now initialized
+                v.set_len(new_len);
+            };
+
+            // since the length of the string could be very long, we use debug_assert.
+            // the assertions at the start of the function already require that the
+            // following assertion is true. just another check to be sure.
+            debug_assert!(str::from_utf8(v).is_ok());
+        }
+
+        fast_replace_range(&mut self.text, byte_range, s);
     }
 
     pub fn update_with_action<U: Updateable, A: Actionable + ?Sized>(
@@ -297,11 +336,15 @@ impl Text {
     pub fn lines(&self) -> TextLines {
         TextLines::new(self.text.as_str(), &self.br_indexes.0)
     }
+
+    fn update_prep(&mut self) {
+        self.old_br_indexes.clone_from(&self.br_indexes);
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::change::{Change, GridIndex};
+    use crate::change::GridIndex;
 
     use super::Text;
 
@@ -325,11 +368,9 @@ mod tests {
         fn single_line() {
             let mut t = Text::new("Hello, World!".into());
             assert_eq!(t.br_indexes, [0]);
-            t.update(
-                Change::Delete {
-                    start: GridIndex { row: 0, col: 1 },
-                    end: GridIndex { row: 0, col: 6 },
-                },
+            t.delete(
+                GridIndex { row: 0, col: 1 },
+                GridIndex { row: 0, col: 6 },
                 &mut (),
             );
 
@@ -341,11 +382,9 @@ mod tests {
         fn multiline() {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".into());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
-            t.update(
-                Change::Delete {
-                    start: GridIndex { row: 1, col: 3 },
-                    end: GridIndex { row: 3, col: 2 },
-                },
+            t.delete(
+                GridIndex { row: 1, col: 3 },
+                GridIndex { row: 3, col: 2 },
                 &mut (),
             );
 
@@ -357,11 +396,9 @@ mod tests {
         fn in_line_into_start() {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".into());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
-            t.update(
-                Change::Delete {
-                    start: GridIndex { row: 0, col: 1 },
-                    end: GridIndex { row: 0, col: 4 },
-                },
+            t.delete(
+                GridIndex { row: 0, col: 1 },
+                GridIndex { row: 0, col: 4 },
                 &mut (),
             );
 
@@ -373,11 +410,9 @@ mod tests {
         fn in_line_at_start() {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".into());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
-            t.update(
-                Change::Delete {
-                    start: GridIndex { row: 0, col: 0 },
-                    end: GridIndex { row: 0, col: 4 },
-                },
+            t.delete(
+                GridIndex { row: 0, col: 0 },
+                GridIndex { row: 0, col: 4 },
                 &mut (),
             );
 
@@ -389,11 +424,9 @@ mod tests {
         fn across_first_line() {
             let mut t = Text::new("Hello, World!\nApplbs\n Oranges\nPears".into());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
-            t.update(
-                Change::Delete {
-                    start: GridIndex { row: 0, col: 3 },
-                    end: GridIndex { row: 1, col: 4 },
-                },
+            t.delete(
+                GridIndex { row: 0, col: 3 },
+                GridIndex { row: 1, col: 4 },
                 &mut (),
             );
 
@@ -405,11 +438,9 @@ mod tests {
         fn across_last_line() {
             let mut t = Text::new("Hello, World!\nApplbs\n Oranges\nPears".into());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
-            t.update(
-                Change::Delete {
-                    start: GridIndex { row: 2, col: 3 },
-                    end: GridIndex { row: 3, col: 2 },
-                },
+            t.delete(
+                GridIndex { row: 2, col: 3 },
+                GridIndex { row: 3, col: 2 },
                 &mut (),
             );
 
@@ -421,11 +452,9 @@ mod tests {
         fn in_line_at_middle() {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".into());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
-            t.update(
-                Change::Delete {
-                    start: GridIndex { row: 2, col: 1 },
-                    end: GridIndex { row: 2, col: 4 },
-                },
+            t.delete(
+                GridIndex { row: 2, col: 1 },
+                GridIndex { row: 2, col: 4 },
                 &mut (),
             );
 
@@ -437,11 +466,9 @@ mod tests {
         fn in_line_at_end() {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".into());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
-            t.update(
-                Change::Delete {
-                    start: GridIndex { row: 3, col: 1 },
-                    end: GridIndex { row: 3, col: 4 },
-                },
+            t.delete(
+                GridIndex { row: 3, col: 1 },
+                GridIndex { row: 3, col: 4 },
                 &mut (),
             );
 
@@ -453,11 +480,9 @@ mod tests {
         fn from_start() {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".into());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
-            t.update(
-                Change::Delete {
-                    start: GridIndex { row: 0, col: 0 },
-                    end: GridIndex { row: 0, col: 5 },
-                },
+            t.delete(
+                GridIndex { row: 0, col: 0 },
+                GridIndex { row: 0, col: 5 },
                 &mut (),
             );
 
@@ -469,11 +494,9 @@ mod tests {
         fn from_end() {
             let mut t = Text::new("Hello, World!\nApples\n Oranges\nPears".into());
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
-            t.update(
-                Change::Delete {
-                    start: GridIndex { row: 3, col: 0 },
-                    end: GridIndex { row: 3, col: 5 },
-                },
+            t.delete(
+                GridIndex { row: 3, col: 0 },
+                GridIndex { row: 3, col: 5 },
                 &mut (),
             );
 
@@ -485,11 +508,9 @@ mod tests {
         fn br() {
             let mut t = Text::new("Hello, World!\nBadApple\n".into());
             assert_eq!(t.br_indexes, [0, 13, 22]);
-            t.update(
-                Change::Delete {
-                    start: GridIndex { row: 1, col: 8 },
-                    end: GridIndex { row: 2, col: 0 },
-                },
+            t.delete(
+                GridIndex { row: 1, col: 8 },
+                GridIndex { row: 2, col: 0 },
                 &mut (),
             );
 
@@ -501,11 +522,9 @@ mod tests {
         fn br_chain() {
             let mut t = Text::new("Hello, World!\n\n\nBadApple\n".into());
             assert_eq!(t.br_indexes, [0, 13, 14, 15, 24]);
-            t.update(
-                Change::Delete {
-                    start: GridIndex { row: 1, col: 0 },
-                    end: GridIndex { row: 2, col: 0 },
-                },
+            t.delete(
+                GridIndex { row: 1, col: 0 },
+                GridIndex { row: 2, col: 0 },
                 &mut (),
             );
 
@@ -520,11 +539,9 @@ mod tests {
                     .into(),
             );
             assert_eq!(t.br_indexes, [0, 13, 20, 26, 38, 44, 51]);
-            t.update(
-                Change::Delete {
-                    start: GridIndex { row: 1, col: 3 },
-                    end: GridIndex { row: 5, col: 2 },
-                },
+            t.delete(
+                GridIndex { row: 1, col: 3 },
+                GridIndex { row: 5, col: 2 },
                 &mut (),
             );
             assert_eq!(t.br_indexes, [0, 13, 21]);
@@ -555,11 +572,9 @@ mod tests {
                 t.br_indexes,
                 [0, 81, 148, 230, 274, 275, 342, 400, 479, 573, 574, 632, 693, 796]
             );
-            t.update(
-                Change::Delete {
-                    start: GridIndex { row: 1, col: 3 },
-                    end: GridIndex { row: 5, col: 0 },
-                },
+            t.delete(
+                GridIndex { row: 1, col: 3 },
+                GridIndex { row: 5, col: 0 },
                 &mut (),
             );
             assert_eq!(
@@ -590,13 +605,7 @@ mod tests {
         fn into_empty() {
             let mut t = Text::new(String::new());
             assert_eq!(t.br_indexes.0, [0]);
-            t.update(
-                Change::Insert {
-                    at: GridIndex { row: 0, col: 0 },
-                    text: "Hello, World!".into(),
-                },
-                &mut (),
-            );
+            t.insert("Hello, World!", GridIndex { row: 0, col: 0 }, &mut ());
 
             assert_eq!(t.text, "Hello, World!");
             assert_eq!(t.br_indexes, [0]);
@@ -606,13 +615,7 @@ mod tests {
         fn in_start() {
             let mut t = Text::new(String::from("Apples"));
             assert_eq!(t.br_indexes.0, [0]);
-            t.update(
-                Change::Insert {
-                    at: GridIndex { row: 0, col: 0 },
-                    text: "Hello, World!".into(),
-                },
-                &mut (),
-            );
+            t.insert("Hello, World!", GridIndex { row: 0, col: 0 }, &mut ());
 
             assert_eq!(t.text, "Hello, World!Apples");
             assert_eq!(t.br_indexes, [0]);
@@ -622,13 +625,7 @@ mod tests {
         fn in_end() {
             let mut t = Text::new(String::from("Apples"));
             assert_eq!(t.br_indexes.0, [0]);
-            t.update(
-                Change::Insert {
-                    at: GridIndex { row: 0, col: 6 },
-                    text: "Hello, \nWorld!\n".into(),
-                },
-                &mut (),
-            );
+            t.insert("Hello, \nWorld!\n", GridIndex { row: 0, col: 6 }, &mut ());
 
             assert_eq!(t.text, "ApplesHello, \nWorld!\n");
             assert_eq!(t.br_indexes, [0, 13, 20]);
@@ -638,13 +635,7 @@ mod tests {
         fn end_of_multiline() {
             let mut t = Text::new(String::from("Apples\nBashdjad\nashdkasdh\nasdsad"));
             assert_eq!(t.br_indexes.0, [0, 6, 15, 25]);
-            t.update(
-                Change::Insert {
-                    at: GridIndex { row: 3, col: 2 },
-                    text: "Hello, \nWorld!\n".into(),
-                },
-                &mut (),
-            );
+            t.insert("Hello, \nWorld!\n", GridIndex { row: 3, col: 2 }, &mut ());
 
             assert_eq!(
                 t.text,
@@ -657,13 +648,7 @@ mod tests {
         fn multi_line_in_middle() {
             let mut t = Text::new(String::from("ABC\nDEF"));
             assert_eq!(t.br_indexes.0, [0, 3]);
-            t.update(
-                Change::Insert {
-                    at: GridIndex { row: 1, col: 1 },
-                    text: "Hello,\n World!\n".into(),
-                },
-                &mut (),
-            );
+            t.insert("Hello,\n World!\n", GridIndex { row: 1, col: 1 }, &mut ());
 
             assert_eq!(t.text, "ABC\nDHello,\n World!\nEF");
             assert_eq!(t.br_indexes.0, [0, 3, 11, 19]);
@@ -673,13 +658,7 @@ mod tests {
         fn single_line_in_middle() {
             let mut t = Text::new(String::from("ABC\nDEF"));
             assert_eq!(t.br_indexes.0, [0, 3]);
-            t.update(
-                Change::Insert {
-                    at: GridIndex { row: 0, col: 1 },
-                    text: "Hello, World!".into(),
-                },
-                &mut (),
-            );
+            t.insert("Hello, World!", GridIndex { row: 0, col: 1 }, &mut ());
 
             assert_eq!(t.text, "AHello, World!BC\nDEF");
             assert_eq!(t.br_indexes.0, [0, 16]);
@@ -689,11 +668,9 @@ mod tests {
         fn multi_byte() {
             let mut t = Text::new("シュタインズ・ゲートは素晴らしいです。".into());
             assert_eq!(t.br_indexes.0, [0]);
-            t.update(
-                Change::Insert {
-                    at: GridIndex { row: 0, col: 3 },
-                    text: "\nHello, ゲートWorld!\n".into(),
-                },
+            t.insert(
+                "\nHello, ゲートWorld!\n",
+                GridIndex { row: 0, col: 3 },
                 &mut (),
             );
 
@@ -720,11 +697,9 @@ mod tests {
 
             assert_eq!(t.br_indexes.0, [0, 7, 12, 18, 24, 59]);
 
-            t.update(
-                Change::Insert {
-                    at: GridIndex { row: 4, col: 5 },
-                    text: "Apple Juice\nBananaMilkshake\nWobbly".into(),
-                },
+            t.insert(
+                "Apple Juice\nBananaMilkshake\nWobbly",
+                GridIndex { row: 4, col: 5 },
                 &mut (),
             );
 
@@ -769,16 +744,14 @@ mod tests {
         fn long_text_multi_byte() {
             let mut t = Text::new(
                 "シュタ\nHello, ゲートWorld!\nインズ・ゲートは素晴らしいです。\nこんにちは世界！"
-                    .into(),
+                    .to_string(),
             );
 
             assert_eq!(t.br_indexes, [0, 9, 32, 81]);
 
-            t.update(
-                Change::Insert {
-                    at: GridIndex { row: 2, col: 3 },
-                    text: "Olá, mundo!\nWaltuh Put the fork away Waltuh.".into(),
-                },
+            t.insert(
+                "Olá, mundo!\nWaltuh Put the fork away Waltuh.",
+                GridIndex { row: 2, col: 3 },
                 &mut (),
             );
 
@@ -818,12 +791,10 @@ mod tests {
 
             assert_eq!(t.br_indexes, [0, 13, 24]);
 
-            t.update(
-                Change::Replace {
-                    start: GridIndex { row: 0, col: 3 },
-                    end: GridIndex { row: 0, col: 5 },
-                    text: "This Should replace some stuff".into(),
-                },
+            t.replace(
+                "This Should replace some stuff",
+                GridIndex { row: 0, col: 3 },
+                GridIndex { row: 0, col: 5 },
                 &mut (),
             );
 
@@ -840,12 +811,10 @@ mod tests {
 
             assert_eq!(t.br_indexes, [0, 13, 24]);
 
-            t.update(
-                Change::Replace {
-                    start: GridIndex { row: 1, col: 3 },
-                    end: GridIndex { row: 1, col: 5 },
-                    text: "This Should replace some stuff".into(),
-                },
+            t.replace(
+                "This Should replace some stuff",
+                GridIndex { row: 1, col: 3 },
+                GridIndex { row: 1, col: 5 },
                 &mut (),
             );
 
@@ -861,12 +830,10 @@ mod tests {
             let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny".into());
 
             assert_eq!(t.br_indexes, [0, 13, 24]);
-            t.update(
-                Change::Replace {
-                    start: GridIndex { row: 0, col: 4 },
-                    end: GridIndex { row: 0, col: 13 },
-                    text: "Wappow! There he stood.".into(),
-                },
+            t.replace(
+                "Wappow! There he stood.",
+                GridIndex { row: 0, col: 4 },
+                GridIndex { row: 0, col: 13 },
                 &mut (),
             );
 
@@ -879,13 +846,10 @@ mod tests {
             let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny".into());
 
             assert_eq!(t.br_indexes, [0, 13, 24]);
-            t.update(
-                Change::Replace {
-                    start: GridIndex { row: 0, col: 5 },
-                    end: GridIndex { row: 1, col: 3 },
-                    text: "This replaced with the content in the first line\n and second line"
-                        .into(),
-                },
+            t.replace(
+                "This replaced with the content in the first line\n and second line",
+                GridIndex { row: 0, col: 5 },
+                GridIndex { row: 1, col: 3 },
                 &mut (),
             );
 
@@ -898,12 +862,10 @@ mod tests {
             let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny\nInteresting!".into());
 
             assert_eq!(t.br_indexes, [0, 13, 24, 34]);
-            t.update(
-                Change::Replace {
-                    start: GridIndex { row: 0, col: 3 },
-                    end: GridIndex { row: 3, col: 6 },
-                    text: "What a wonderful world!\nWowzers\nSome Random text".into(),
-                },
+            t.replace(
+                "What a wonderful world!\nWowzers\nSome Random text",
+                GridIndex { row: 0, col: 3 },
+                GridIndex { row: 3, col: 6 },
                 &mut (),
             );
 
@@ -920,12 +882,10 @@ mod tests {
             let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny\nInteresting!".into());
 
             assert_eq!(t.br_indexes, [0, 13, 24, 34]);
-            t.update(
-                Change::Replace {
-                    start: GridIndex { row: 2, col: 3 },
-                    end: GridIndex { row: 3, col: 6 },
-                    text: "What a wonderful world!\nWowzers\nSome Random text".into(),
-                },
+            t.replace(
+                "What a wonderful world!\nWowzers\nSome Random text",
+                GridIndex { row: 2, col: 3 },
+                GridIndex { row: 3, col: 6 },
                 &mut (),
             );
 
@@ -942,12 +902,10 @@ mod tests {
             let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny\nInteresting!".into());
 
             assert_eq!(t.br_indexes, [0, 13, 24, 34]);
-            t.update(
-                Change::Replace {
-                    start: GridIndex { row: 2, col: 1 },
-                    end: GridIndex { row: 2, col: 5 },
-                    text: "I am in the middle!\nNo one can stop me.".into(),
-                },
+            t.replace(
+                "I am in the middle!\nNo one can stop me.",
+                GridIndex { row: 2, col: 1 },
+                GridIndex { row: 2, col: 5 },
                 &mut (),
             );
 
@@ -960,12 +918,10 @@ mod tests {
             let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny\nInteresting!".into());
 
             assert_eq!(t.br_indexes, [0, 13, 24, 34]);
-            t.update(
-                Change::Replace {
-                    start: GridIndex { row: 1, col: 3 },
-                    end: GridIndex { row: 1, col: 6 },
-                    text: "Look ma, no line breaks".into(),
-                },
+            t.replace(
+                "Look ma, no line breaks",
+                GridIndex { row: 1, col: 3 },
+                GridIndex { row: 1, col: 6 },
                 &mut (),
             );
 
@@ -981,12 +937,10 @@ mod tests {
             let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny\nInteresting!".into());
 
             assert_eq!(t.br_indexes, [0, 13, 24, 34]);
-            t.update(
-                Change::Replace {
-                    start: GridIndex { row: 0, col: 3 },
-                    end: GridIndex { row: 0, col: 8 },
-                    text: "Look ma, no line breaks".into(),
-                },
+            t.replace(
+                "Look ma, no line breaks",
+                GridIndex { row: 0, col: 3 },
+                GridIndex { row: 0, col: 8 },
                 &mut (),
             );
 
@@ -1002,12 +956,10 @@ mod tests {
             let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny\nInteresting!".into());
 
             assert_eq!(t.br_indexes, [0, 13, 24, 34]);
-            t.update(
-                Change::Replace {
-                    start: GridIndex { row: 3, col: 3 },
-                    end: GridIndex { row: 3, col: 8 },
-                    text: "Look ma, no line breaks".into(),
-                },
+            t.replace(
+                "Look ma, no line breaks",
+                GridIndex { row: 3, col: 3 },
+                GridIndex { row: 3, col: 8 },
                 &mut (),
             );
 
@@ -1023,12 +975,10 @@ mod tests {
             let mut t = Text::new("Hello, World!\nBye World!\nhahaFunny\nInteresting!".into());
 
             assert_eq!(t.br_indexes, [0, 13, 24, 34]);
-            t.update(
-                Change::Replace {
-                    start: GridIndex { row: 0, col: 3 },
-                    end: GridIndex { row: 3, col: 8 },
-                    text: "Look ma, no line breaks".into(),
-                },
+            t.replace(
+                "Look ma, no line breaks",
+                GridIndex { row: 0, col: 3 },
+                GridIndex { row: 3, col: 8 },
                 &mut (),
             );
 
@@ -1041,12 +991,10 @@ mod tests {
                 Text::new("SomeText\nSome Other Text\nSome somsoemesome\n wowoas \n\n".into());
 
             assert_eq!(t.br_indexes, [0, 8, 24, 42, 51, 52]);
-            t.update(
-                Change::Replace {
-                    start: GridIndex { row: 0, col: 0 },
-                    end: GridIndex { row: 6, col: 0 },
-                    text: "Hello, World!\nBye World!".into(),
-                },
+            t.replace(
+                "Hello, World!\nBye World!",
+                GridIndex { row: 0, col: 0 },
+                GridIndex { row: 6, col: 0 },
                 &mut (),
             );
 

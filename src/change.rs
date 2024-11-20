@@ -30,22 +30,6 @@ impl Change<'_> {
         end: GridIndex::BASE_GRID_INDEX,
     };
 
-    /// Normalize the provided the grid index.
-    ///
-    /// When converting a type to [`Change`], the values may not strictly align with what is
-    /// present.
-    pub(crate) fn normalize(&mut self, text: &mut Text) {
-        let (start, end) = match self {
-            Change::Delete { start, end } => (start, end),
-            Change::Insert { at, .. } => (&mut GridIndex { row: 0, col: 0 }, at),
-            Change::Replace { start, end, .. } => (start, end),
-            Change::ReplaceFull(_) => return,
-        };
-
-        start.normalize(text);
-        end.normalize(text);
-    }
-
     #[inline(always)]
     pub(crate) fn range(&self) -> (GridIndex, GridIndex) {
         match self {
