@@ -44,6 +44,12 @@ impl Updateable for () {
     fn update(&mut self, _: UpdateContext) {}
 }
 
+impl<T: Updateable> Updateable for [T] {
+    fn update(&mut self, ctx: UpdateContext) {
+        self.iter_mut().for_each(|a| a.update(ctx.clone()));
+    }
+}
+
 impl<'a, T> Updateable for T
 where
     T: 'a + FnMut(UpdateContext),
