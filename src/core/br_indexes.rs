@@ -101,7 +101,7 @@ impl BrIndexes {
     /// Add an offset to all rows after the provided row number excluding itself.
     #[inline(always)]
     pub(crate) fn add_offsets(&mut self, row: usize, by: usize) {
-        if row + 1 > self.0.len() {
+        if row >= self.0.len() {
             return;
         }
         self.0[row + 1..].iter_mut().for_each(|bi| *bi += by);
@@ -119,19 +119,41 @@ impl BrIndexes {
     /// Returns true if the provided row number is the last row.
     #[inline(always)]
     pub fn is_last_row(&self, row: usize) -> bool {
-        assert!(row < self.0.len());
-        self.0.len() - 1 == row
+        let len = self.0.len();
+        if row >= len {
+            oob_row_query(row, len)
+        }
+        len - 1 == row
     }
 
     #[inline(always)]
     pub fn row_count(&self) -> usize {
-        self.0.len()
+        let len = self.0.len();
+        if len == 0 {
+            no_row();
+        }
+        len
     }
 
     #[inline(always)]
     pub fn last_row(&self) -> usize {
+        // Cannot panic, Self::row_count should always return at least 1.
         self.row_start(self.row_count() - 1)
     }
+}
+
+#[cold]
+#[inline(never)]
+#[track_caller]
+fn no_row() -> ! {
+    panic!("the row count should never be less than one")
+}
+
+#[cold]
+#[inline(never)]
+#[track_caller]
+fn oob_row_query(n: usize, len: usize) -> ! {
+    panic!("row query should never be out of bounds. row query {n} should always be less than row count {len}");
 }
 
 #[cfg(test)]
