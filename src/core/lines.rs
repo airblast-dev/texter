@@ -56,6 +56,8 @@ impl Iterator for FastEOL<'_> {
                 self.r = None;
                 next
             }
+            // adding this to a cold path, or swapping it out for its unsafe variant worsens
+            // performance for some reason.
             _ => unreachable!("the byte value should only be a line break or carriage return"),
         }
     }
