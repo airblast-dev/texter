@@ -92,6 +92,9 @@ impl Updateable for GridIndex {
                 text,
                 inserted_br_indexes,
             } => {
+                if text.is_empty() {
+                    return;
+                }
                 self.row += inserted_br_indexes.len();
                 let start_byte_index = ctx.old_breaklines.row_start(position.row) + position.col;
                 let last_lf = inserted_br_indexes
@@ -99,7 +102,11 @@ impl Updateable for GridIndex {
                     .copied()
                     .map(|i| i - start_byte_index)
                     .unwrap_or_default();
-                self.col = text.len() - last_lf;
+                if inserted_br_indexes.is_empty() {
+                    self.col += text.len()
+                } else {
+                    self.col = text.len() - last_lf - 1;
+                }
             }
             ChangeContext::Delete { start, .. } => {
                 *self = start;
