@@ -289,7 +289,9 @@ impl Text {
 
     #[inline]
     pub fn get_row(&self, r: usize) -> &str {
-        self.lines().nth(r).expect("requested row should never be out of bounds")
+        self.lines()
+            .nth(r)
+            .expect("requested row should never be out of bounds")
     }
 
     pub fn lines(&self) -> TextLines {
