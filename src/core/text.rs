@@ -287,6 +287,11 @@ impl Text {
         self.br_indexes.row_start(r)
     }
 
+    #[inline]
+    pub fn get_row(&self, r: usize) -> &str {
+        self.lines().nth(r).expect("requested row should never be out of bounds")
+    }
+
     pub fn lines(&self) -> TextLines {
         TextLines::new(self.text.as_str(), &self.br_indexes.0)
     }
