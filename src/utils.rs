@@ -1,6 +1,5 @@
 #[inline]
 pub(crate) fn trim_eol_from_end(base_line: &str) -> &str {
-    // TODO: add checks for the behavior.
     let eol_len = match base_line.as_bytes() {
         // This pattern should come first as the following pattern could cause an EOL to be
         // included.
