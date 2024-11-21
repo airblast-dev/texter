@@ -36,9 +36,10 @@ fn main() {
 
 /// A cursor and tree bundled together to be updated by [`texter::core::text::Text::update`].
 ///
-/// The [`Updateable`] trait is already implemented for [`Tree`] so we just
-/// have to implement [`Updateable`] for our [`Cursor`]. See the `cursor.rs` file for the
-/// implementation.
+/// The [`Updateable`] trait is already implemented for [`Tree`] when the `tree-sitter` feature is
+/// enabled so we just have to implement [`Updateable`] for our [`Cursor`]. 
+///
+/// See the `cursor.rs` file for its implementation.
 #[derive(Clone, Debug)]
 struct CursorTree {
     cursor: Cursor,
@@ -241,6 +242,8 @@ impl App {
             buf.set_string(row.x, row.y, line, Style::new().blue());
         }
         buf.content.iter_mut().for_each(|cell| {
+            // reset the cell where it is empty to avoid coloring the cursor when it is not over a
+            // node.
             if cell.symbol() == " " {
                 cell.reset();
             }
