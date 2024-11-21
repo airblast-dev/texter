@@ -30,18 +30,25 @@ pub struct Text {
     /// The EOL positions of the text, from the previous update.
     ///
     /// The same rules and restrictions that apply to the current [`BrIndexes`] also apply
-    /// here.
+    /// here. With one exception, that is until the first update is provided the value will not
+    /// store any information. Calling any of the values methods before an update is processed 
+    /// will very likely result in a panic.
     ///
     /// This is provided to the [`Updateable`] passed to [`Self::update`] to avoid recalculating
     /// positions.
     pub old_br_indexes: BrIndexes,
     /// The text that is stored.
     ///
-    /// When an insertion is performed on line count + 1, a line break is inserted.
+    /// When an insertion is performed on line count, a line break is inserted.
     /// This means the string stored is not always an exact one to one copy of its source.
+    /// This means if you are to compare the text with its source you should normalize their line
+    /// breaks.
     ///
     /// When manually modifying the string outside of the provided methods, it is up to the user to
-    /// assure that the `Text.br_indexes` are alligned with what is present in the string.
+    /// assure that `Text.br_indexes` is alligned with what is present in the string. Not
+    /// doing so will eventually result in a panic. If you are only modifying the value through the
+    /// provided methods, and only reading from the value, this is not an issue as the methods
+    /// guarantee that all of the values are in sync with each other.
     pub text: String,
     pub(crate) encoding: EncodingFns,
 }
