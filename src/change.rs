@@ -29,16 +29,6 @@ impl Change<'_> {
         start: GridIndex::BASE_GRID_INDEX,
         end: GridIndex::BASE_GRID_INDEX,
     };
-
-    #[inline(always)]
-    pub(crate) fn range(&self) -> (GridIndex, GridIndex) {
-        match self {
-            Change::Replace { start, end, .. } => (*start, *end),
-            Change::Insert { at, .. } => (GridIndex::BASE_GRID_INDEX, *at),
-            Change::Delete { start, end } => (*start, *end),
-            Change::ReplaceFull(_) => (GridIndex::BASE_GRID_INDEX, GridIndex::BASE_GRID_INDEX),
-        }
-    }
 }
 
 /// An action to be transformed into a change or multiple changes.
