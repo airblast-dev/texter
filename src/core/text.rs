@@ -114,21 +114,7 @@ impl Text {
                 self.replace(&text, start, end, updateable);
             }
             Change::ReplaceFull(s) => {
-                todo!("move to a function");
-                self.br_indexes = BrIndexes::new(&s);
-                updateable.update(UpdateContext {
-                    change: ChangeContext::ReplaceFull { text: s.as_ref() },
-                    breaklines: &self.br_indexes,
-                    old_breaklines: &self.old_br_indexes,
-                    old_str: self.text.as_str(),
-                });
-                match s {
-                    Cow::Borrowed(s) => {
-                        self.text.clear();
-                        self.text.push_str(s);
-                    }
-                    Cow::Owned(s) => self.text = s,
-                };
+                self.replace_full(s, updateable);
             }
         }
     }
@@ -301,6 +287,24 @@ impl Text {
         }
 
         fast_replace_range(&mut self.text, byte_range, s);
+    }
+
+    #[inline]
+    pub fn replace_full<U: Updateable>(&mut self, s: Cow<'_, str>, updateable: &mut U) {
+        self.br_indexes = BrIndexes::new(&s);
+        updateable.update(UpdateContext {
+            change: ChangeContext::ReplaceFull { text: s.as_ref() },
+            breaklines: &self.br_indexes,
+            old_breaklines: &self.old_br_indexes,
+            old_str: self.text.as_str(),
+        });
+        match s {
+            Cow::Borrowed(s) => {
+                self.text.clear();
+                self.text.push_str(s);
+            }
+            Cow::Owned(s) => self.text = s,
+        };
     }
 
     pub fn update_with_action<U: Updateable, A: Actionable + ?Sized>(
