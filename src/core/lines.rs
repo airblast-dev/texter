@@ -99,17 +99,20 @@ impl<'a> TextLines<'a> {
 impl<'a> Iterator for TextLines<'a> {
     type Item = &'a str;
     fn next(&mut self) -> Option<Self::Item> {
-        let nth = self.nth(self.cursor);
-        self.cursor += 1;
-        nth
+        self.nth(0)
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        let mut start = *self.lf_indexes.get(n)?;
+        let mut start = *self.lf_indexes.get(self.cursor + n)?;
 
         start += (start != 0) as usize;
-        let end = self.lf_indexes.get(n + 1).copied().unwrap_or(self.s.len());
+        let end = self
+            .lf_indexes
+            .get(self.cursor + n + 1)
+            .copied()
+            .unwrap_or(self.s.len());
 
+        self.cursor += n + 1;
         Some(trim_eol_from_end(&self.s[start..end]))
     }
 
@@ -161,6 +164,36 @@ mod tests {
         let mut lines = TextLines::new(s, indexes);
         assert_eq!(lines.next(), Some("abc"));
         assert_eq!(lines.next(), Some(""));
+        assert_eq!(lines.next(), Some("123"));
+        assert_eq!(lines.next(), Some(""));
+        assert_eq!(lines.next(), Some("basdasd"));
+        assert_eq!(lines.next(), Some(""));
+        assert_eq!(lines.next(), Some(""));
+        assert_eq!(lines.next(), Some(""));
+    }
+
+    #[test]
+    #[allow(clippy::iter_nth_zero)]
+    fn text_lines_nth() {
+        let s = "abc\n\r123\n\nbasdasd\n\n\n";
+        let indexes = &[0, 3, 4, 8, 9, 17, 18, 19];
+        let mut lines = TextLines::new(s, indexes);
+
+        assert_eq!(lines.nth(0), Some("abc"));
+        assert_eq!(lines.nth(0), Some(""));
+        assert_eq!(lines.nth(0), Some("123"));
+        assert_eq!(lines.nth(0), Some(""));
+        assert_eq!(lines.nth(0), Some("basdasd"));
+        assert_eq!(lines.nth(0), Some(""));
+        assert_eq!(lines.nth(0), Some(""));
+        assert_eq!(lines.nth(0), Some(""));
+    }
+
+    #[test]
+    fn text_lines_skip() {
+        let s = "abc\n\r123\n\nbasdasd\n\n\n";
+        let indexes = &[0, 3, 4, 8, 9, 17, 18, 19];
+        let mut lines = TextLines::new(s, indexes).skip(2);
         assert_eq!(lines.next(), Some("123"));
         assert_eq!(lines.next(), Some(""));
         assert_eq!(lines.next(), Some("basdasd"));
