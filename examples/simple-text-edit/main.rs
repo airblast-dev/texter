@@ -66,7 +66,7 @@ struct App {
     /// This is only used when rendering the text.
     row_offset: usize,
 
-    /// Tree sitter already provides a neat query for syntax highlighting so we can just use that.
+    /// `tree-sitter-rust`'s grammers already provides a neat query for syntax highlighting so we can just use that.
     query: Query,
 
     /// A bunch of random colors generated at runtime to be used when syntax highlighting.
@@ -130,6 +130,9 @@ impl App {
                 code: KeyCode::Backspace,
                 ..
             } => {
+                // Here we use a pre defined action from `texter`.
+                // It simply deletes the previous character, and moves the row up if it was a line
+                // seperator (AKA it is at the start of the line).
                 self.text.update_with_action(
                     &mut DeletePreviousChar(cursor.byte_pos()),
                     &mut self.cursor_tree,
