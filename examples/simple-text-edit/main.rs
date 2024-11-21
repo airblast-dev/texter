@@ -296,7 +296,7 @@ impl App {
                     .take_while(|(i, _)| *i < end.column)
                     .count();
 
-                f.buffer_mut().set_style(
+                buf.set_style(
                     Rect {
                         x: start.column as u16,
                         width: first_row_start_col as u16,
