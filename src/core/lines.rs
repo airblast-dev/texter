@@ -105,7 +105,7 @@ impl<'a> Iterator for TextLines<'a> {
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let mut start = *self.lf_indexes.get(self.cursor + n)?;
 
-        start += (start != 0) as usize;
+        start += (self.cursor + n != 0) as usize;
         let end = self
             .lf_indexes
             .get(self.cursor + n + 1)
