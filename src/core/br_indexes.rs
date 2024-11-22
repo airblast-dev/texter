@@ -102,7 +102,7 @@ impl BrIndexes {
     /// Sub an offset to all rows after the provided row number excluding itself.
     #[inline(always)]
     pub(crate) fn sub_offsets(&mut self, row: usize, by: usize) {
-        if row + 1 > self.0.len() {
+        if row >= self.0.len() {
             return;
         }
         self.0[row + 1..].iter_mut().for_each(|bi| *bi -= by);
