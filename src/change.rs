@@ -25,6 +25,9 @@ pub enum Change<'a> {
     /// Insert some text at the position `at`.
     Insert { at: GridIndex, text: Cow<'a, str> },
     /// Replace the text between `start..end`
+    ///
+    /// Internally uses a more efficient solution than [`String::replace_range`] as it uses
+    /// [`Vec::splice`] which is very slow for string operations.
     Replace {
         start: GridIndex,
         end: GridIndex,
