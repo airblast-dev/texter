@@ -4,11 +4,17 @@ use memchr::{memchr2_iter, Memchr2};
 
 use crate::utils::trim_eol_from_end;
 
+/// A fast iterator that searchs for end of lines.
+///
+/// The actual search operation relies on [`memchr::memchr2_iter`], but with a wrapper around it to
+/// account for the "\r\n" case.
 #[derive(Clone, Debug)]
 pub(crate) struct FastEOL<'a> {
     haystack: &'a [u8],
     iter: Memchr2<'a>,
+    /// The position of the last found b'\r'.
     r: Option<usize>,
+    /// The last found EOL.
     last_found: usize,
 }
 
@@ -72,6 +78,11 @@ impl Iterator for FastEOL<'_> {
 
 impl FusedIterator for FastEOL<'_> {}
 
+/// An efficient iterator that provides each line found in a [`Text`].
+///
+/// See [`Text::lines`] for more information.
+/// - [`Text`]: super::text::Text
+/// - [`Text::lines`]: super::text::Text::lines
 #[derive(Clone, Debug)]
 pub struct TextLines<'a> {
     lf_indexes: &'a [usize],

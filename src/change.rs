@@ -6,21 +6,31 @@ use crate::{
     utils::trim_eol_from_end,
 };
 
+/// A [`Change`] to be performed on a [`Text`].
+///
+/// A change consists of four primitive text operations. These operations are designed to be simple so
+/// that any parser, LSP, or other tooling is able to use the information without too much
+/// pre-processing.
+///
+/// All of the end ranges store store the column exclusively, which means the character at end.col
+/// will not be deleted or replaced.
+///
+/// As the mentioned these are only the primitives of actions performed on a [`Text`], for more
+/// complex actions you may want to use an [`Actionable`] from [`crate::actions`], or implement an
+/// [`Actionable`] yourself.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Change<'a> {
-    Delete {
-        start: GridIndex,
-        end: GridIndex,
-    },
-    Insert {
-        at: GridIndex,
-        text: Cow<'a, str>,
-    },
+    /// Delete some text between the ranges of `start..end`.
+    Delete { start: GridIndex, end: GridIndex },
+    /// Insert some text at the position `at`.
+    Insert { at: GridIndex, text: Cow<'a, str> },
+    /// Replace the text between `start..end`
     Replace {
         start: GridIndex,
         end: GridIndex,
         text: Cow<'a, str>,
     },
+    /// Fully replace the contents of the text.
     ReplaceFull(Cow<'a, str>),
 }
 
@@ -34,17 +44,33 @@ impl Change<'_> {
 /// An action to be transformed into a change or multiple changes.
 ///
 /// Used in defining specific actions such deleting the following word from a position.
+///
+/// See [`crate::actions`] for actions implemented by this crate.
 pub trait Actionable {
     fn to_change<'a>(&'a mut self, text: &Text) -> ActionKind<'a>;
 }
 
 // TODO: Probably should add more variants.
+/// The kind of action to be performed.
 pub enum ActionKind<'a> {
     Once(Change<'a>),
+    /// When using this variant the changes are processed in a loop from start to end.
+    ///
+    /// This means that the second change is applied after the first change. The positions stored
+    /// in the changes must be correctly defined to account for any previous changes defined in the
+    /// current [`ActionKind::Many`].
+    ///
+    /// This is the same way the LSP spec requires how edits are to be interpreted.
     Many(Box<[Change<'a>]>),
 }
 
 impl Actionable for Change<'_> {
+    /// Generally if you are just performing a change, [`Text::update`] or one of the direct
+    /// methods should be used.
+    ///
+    /// However it would be an annoyance if you were to perform numerous dynamically dispatched
+    /// (the dyn syntax) actions with one of them just being a change. This allows a change to
+    /// be turned into a `Box<dyn Actionable>` or `&dyn Actionable` where needed.
     fn to_change<'a>(&'a mut self, _: &Text) -> ActionKind<'a> {
         let mut ch = Change::EMPTY;
         std::mem::swap(self, &mut ch);
@@ -52,6 +78,9 @@ impl Actionable for Change<'_> {
     }
 }
 
+/// A structure denoting text positions for any encoding.
+///
+/// Both fields are used as an index, which means the first row is always zero.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct GridIndex {
     pub row: usize,
@@ -59,6 +88,15 @@ pub struct GridIndex {
 }
 
 impl Updateable for GridIndex {
+    /// An implementation of using [`GridIndex`] as a very simple cursor.
+    ///
+    /// You will almost always want to implement your own cursor as it often requires subtle behavior
+    /// changes. This is useful if you just want a dead simple cursor until you implement one specific
+    /// to your use case.
+    ///
+    /// The positions of the [`GridIndex`] are expected, and set to be valid for UTF-8. In case you
+    /// want the position as a different encoding you should transform it via
+    /// TODO: update this after exposing public interface to easily transform positions.
     fn update(&mut self, ctx: UpdateContext) {
         match ctx.change {
             ChangeContext::Insert {
@@ -109,6 +147,8 @@ impl Updateable for GridIndex {
 }
 
 impl GridIndex {
+    /// A cheap to create [`GridIndex`], can be used in cases where a temporary variable is needed
+    /// for lifetime purposes.
     const BASE_GRID_INDEX: Self = Self { row: 0, col: 0 };
 }
 
@@ -233,6 +273,10 @@ mod lspt {
 }
 
 impl GridIndex {
+    /// Transform the positions from the [`Text`]'s expected encoding, to UTF-8 positions.
+    ///
+    /// If the row value of the [`GridIndex`] is same as the number of rows, this will insert a
+    /// line break.
     pub fn normalize(&mut self, text: &mut Text) {
         let br_indexes = &mut text.br_indexes;
         let mut row_count = br_indexes.row_count();
@@ -259,6 +303,7 @@ impl GridIndex {
         );
     }
 
+    /// Transform the positions to the [`Text`]'s expected encoding, from UTF-8 positions.
     pub fn denormalize(&mut self, text: &Text) {
         let br_indexes = &text.br_indexes;
         let row_count = br_indexes.row_count();

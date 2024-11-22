@@ -19,19 +19,26 @@ use crate::{
     updateables::{ChangeContext, UpdateContext, Updateable},
 };
 
+/// An efficient way to store and process changes made to a text.
+///
+/// Any method that performs a change on the text also accepts an [`Updateable`] which will be
+/// provided with a view of some of the computed values. In case you do not want to provide an
+/// [`Updateable`] you may simply provide a `&mut ()` as the argument.
 #[derive(Clone, Debug)]
 pub struct Text {
     /// The EOL byte positions of the text.
     ///
     /// In case of multibyte EOL patterns (such as `\r\n`) the values point to the last byte.
     ///
-    /// If modifying `Text.text`, the changes should also be reflected in [`BrIndexes`].
+    /// If modifying a [`Text`], the changes should also be reflected in [`BrIndexes`].
+    /// This is already done when interacting with the implemented methods, but if the string is
+    /// manually modified you should reflect to changes here as well.
     pub br_indexes: BrIndexes,
     /// The EOL positions of the text, from the previous update.
     ///
     /// The same rules and restrictions that apply to the current [`BrIndexes`] also apply
     /// here. With one exception, that is until the first update is provided the value will not
-    /// store any information. Calling any of the values methods before an update is processed 
+    /// store any information. Calling any of the values methods before an update is processed
     /// will very likely result in a panic.
     ///
     /// This is provided to the [`Updateable`] passed to [`Self::update`] to avoid recalculating
@@ -41,14 +48,16 @@ pub struct Text {
     ///
     /// When an insertion is performed on line count, a line break is inserted.
     /// This means the string stored is not always an exact one to one copy of its source.
-    /// This means if you are to compare the text with its source you should normalize their line
+    /// If you are to compare the text with its source you should normalize their line
     /// breaks.
     ///
     /// When manually modifying the string outside of the provided methods, it is up to the user to
     /// assure that `Text.br_indexes` is alligned with what is present in the string. Not
     /// doing so will eventually result in a panic. If you are only modifying the value through the
-    /// provided methods, and only reading from the value, this is not an issue as the methods
-    /// guarantee that all of the values are in sync with each other.
+    /// provided methods, and only reading from the value, this is not an issue as the implemented methods
+    /// guarantee that all of the values are in sync with each other. Before manually modifying the
+    /// value, the current `br_indexes` field should be cloned to `old_br_indexes` this is required
+    /// to correctly update an [`Updateable`] if one is provided.
     pub text: String,
     pub(crate) encoding: EncodingFns,
 }
@@ -68,7 +77,10 @@ impl PartialEq for Text {
 }
 
 impl Text {
-    /// Creates a new [`Text`] for UTF8 encoded positions.
+    /// Creates a new [`Text`] that expects UTF-8 encoded positions.
+    ///
+    /// You should generally prefer this method instead of [`Text::new_utf16`] or [`Text::new_utf32`]
+    /// and then transform the positions manually when using multiple encoding positions.
     pub fn new(text: String) -> Self {
         let br_indexes = BrIndexes::new(&text);
         Text {
@@ -79,7 +91,7 @@ impl Text {
         }
     }
 
-    /// Creates a new [`Text`] for UTF16 encoded positions.
+    /// Creates a new [`Text`] that expects UTF-16 encoded positions.
     pub fn new_utf16(text: String) -> Self {
         let br_indexes = BrIndexes::new(&text);
         Text {
@@ -90,7 +102,7 @@ impl Text {
         }
     }
 
-    /// Creates a new [`Text`] for UTF32 encoded positions.
+    /// Creates a new [`Text`] that expects UTF-32 encoded positions.
     pub fn new_utf32(text: String) -> Self {
         let br_indexes = BrIndexes::new(&text);
         Text {
@@ -102,6 +114,13 @@ impl Text {
     }
 
     #[instrument(skip(change, updateable))]
+    /// Perform an a change on the text.
+    ///
+    /// The positions in the provided [`Change`] will be transformed to the expected encoding 
+    /// depending on how the [`Text`] was constructed.
+    ///
+    /// For more complex operations you may want to use an [`Actionable`] and provide it to
+    /// [`Text::update_with_action`].
     pub fn update<'a, U: Updateable, C: Into<Change<'a>>>(
         &mut self,
         change: C,

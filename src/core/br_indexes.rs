@@ -1,5 +1,3 @@
-use std::ops::Index;
-
 use super::lines::FastEOL;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -16,6 +14,8 @@ impl Clone for BrIndexes {
         Self(self.0.clone())
     }
 
+    // The derived impl does not add this, and instead creates a new Vec instead of reusing the
+    // allocation.
     fn clone_from(&mut self, source: &Self) {
         self.0.clone_from(&source.0);
     }
@@ -25,16 +25,6 @@ impl Clone for BrIndexes {
 impl<S: AsRef<[usize]>> PartialEq<S> for BrIndexes {
     fn eq(&self, other: &S) -> bool {
         self.0 == other.as_ref()
-    }
-}
-
-impl<T> Index<T> for BrIndexes
-where
-    [usize]: Index<T>,
-{
-    type Output = <[usize] as Index<T>>::Output;
-    fn index(&self, index: T) -> &Self::Output {
-        &self.0.as_slice()[index]
     }
 }
 
@@ -64,6 +54,8 @@ impl BrIndexes {
         at: usize,
         indexes: I,
     ) -> std::ops::Range<usize> {
+        // A slightly more efficient way to insert multiple values in a Vec.
+        // Can be thought of as inserting using Vec::splice with optimal cases.
         let old_len = self.0.len();
         self.0.extend(indexes);
         let new_len = self.0.len();
@@ -116,7 +108,7 @@ impl BrIndexes {
         self.0[row + 1..].iter_mut().for_each(|bi| *bi -= by);
     }
 
-    /// Returns true if the provided row number is the last row.
+    /// Returns true if the provided row index is for the last row.
     #[inline(always)]
     pub fn is_last_row(&self, row: usize) -> bool {
         let len = self.0.len();

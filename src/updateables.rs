@@ -26,7 +26,8 @@ pub enum ChangeContext<'a> {
 
 #[derive(Clone, Debug)]
 pub struct UpdateContext<'a> {
-    /// A context change that is being used to update the [`Text`].
+    /// A change that is being used to update the [`Text`].
+    /// - [`Text`]: crate::core::text::Text
     pub change: ChangeContext<'a>,
     /// The new breakline positions.
     pub breaklines: &'a BrIndexes,

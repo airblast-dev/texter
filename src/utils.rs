@@ -1,3 +1,4 @@
+/// A slightly faster [`str::trim_end_matches`] for trimming EOL bytes.
 #[inline]
 pub(crate) fn trim_eol_from_end(base_line: &str) -> &str {
     let eol_len = match base_line.as_bytes() {
