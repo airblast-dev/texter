@@ -14,10 +14,6 @@ use crate::{
 ///
 /// All of the end ranges store store the column exclusively, which means the character at end.col
 /// will not be deleted or replaced.
-///
-/// As the mentioned these are only the primitives of actions performed on a [`Text`], for more
-/// complex actions you may want to use an [`Actionable`] from [`crate::actions`], or implement an
-/// [`Actionable`] yourself.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Change<'a> {
     /// Delete some text between the ranges of `start..end`.
@@ -35,50 +31,6 @@ pub enum Change<'a> {
     },
     /// Fully replace the contents of the text.
     ReplaceFull(Cow<'a, str>),
-}
-
-impl Change<'_> {
-    const EMPTY: Change<'static> = Change::Delete {
-        start: GridIndex::BASE_GRID_INDEX,
-        end: GridIndex::BASE_GRID_INDEX,
-    };
-}
-
-/// An action to be transformed into a change or multiple changes.
-///
-/// Used in defining specific actions such deleting the following word from a position.
-///
-/// See [`crate::actions`] for actions implemented by this crate.
-pub trait Actionable {
-    fn to_change<'a>(&'a mut self, text: &Text) -> ActionKind<'a>;
-}
-
-// TODO: Probably should add more variants.
-/// The kind of action to be performed.
-pub enum ActionKind<'a> {
-    Once(Change<'a>),
-    /// When using this variant the changes are processed in a loop from start to end.
-    ///
-    /// This means that the second change is applied after the first change. The positions stored
-    /// in the changes must be correctly defined to account for any previous changes defined in the
-    /// current [`ActionKind::Many`].
-    ///
-    /// This is the same way the LSP spec requires how edits are to be interpreted.
-    Many(Box<[Change<'a>]>),
-}
-
-impl Actionable for Change<'_> {
-    /// Generally if you are just performing a change, [`Text::update`] or one of the direct
-    /// methods should be used.
-    ///
-    /// However it would be an annoyance if you were to perform numerous dynamically dispatched
-    /// (the dyn syntax) actions with one of them just being a change. This allows a change to
-    /// be turned into a `Box<dyn Actionable>` or `&dyn Actionable` where needed.
-    fn to_change<'a>(&'a mut self, _: &Text) -> ActionKind<'a> {
-        let mut ch = Change::EMPTY;
-        std::mem::swap(self, &mut ch);
-        ActionKind::Once(ch)
-    }
 }
 
 /// A structure denoting text positions for any encoding.
@@ -147,12 +99,6 @@ impl Updateable for GridIndex {
             }
         }
     }
-}
-
-impl GridIndex {
-    /// A cheap to create [`GridIndex`], can be used in cases where a temporary variable is needed
-    /// for lifetime purposes.
-    const BASE_GRID_INDEX: Self = Self { row: 0, col: 0 };
 }
 
 #[cfg(feature = "tree-sitter")]

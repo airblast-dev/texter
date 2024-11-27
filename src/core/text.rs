@@ -15,7 +15,7 @@ use super::{
 };
 
 use crate::{
-    change::{ActionKind, Actionable, Change, GridIndex},
+    change::{Change, GridIndex},
     updateables::{ChangeContext, UpdateContext, Updateable},
 };
 
@@ -118,9 +118,6 @@ impl Text {
     ///
     /// The positions in the provided [`Change`] will be transformed to the expected encoding 
     /// depending on how the [`Text`] was constructed.
-    ///
-    /// For more complex operations you may want to use an [`Actionable`] and provide it to
-    /// [`Text::update_with_action`].
     pub fn update<'a, U: Updateable, C: Into<Change<'a>>>(
         &mut self,
         change: C,
@@ -330,23 +327,6 @@ impl Text {
                 self.text.push_str(s);
             }
             Cow::Owned(s) => self.text = s,
-        };
-    }
-
-    pub fn update_with_action<U: Updateable, A: Actionable + ?Sized>(
-        &mut self,
-        action: &mut A,
-        u: &mut U,
-    ) {
-        let action = action.to_change(self);
-        match action {
-            ActionKind::Once(ch) => self.update(ch, u),
-            ActionKind::Many(bx) => {
-                // TODO: Remove Box<[...]>::into_vec once Box implements IntoIter in 2024 edition.
-                bx.into_vec().into_iter().for_each(|ch| {
-                    self.update(ch, u);
-                });
-            }
         };
     }
 
