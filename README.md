@@ -1,18 +1,21 @@
 # Texter
-Texter is a crate that simplifies text modifications/updates from various sources such as an LSP and text editor in an efficient manner. It supports positions encoded for UTF-8, UTF-16 and UTF-32.
+Texter is a crate that aims simplify creating an LSP that uses `tree-sitter` and wants to benefit from incremental updates.
 
 ## Examples
-The more simpler examples are included in this repository. For more complex projects check the end of this section.
+A list of projects that use `texter`.
 
-### Text Editor (simple-text-edit)
-A very simple text editor similar to `nano` that incrementally updates a `tree-sitter` `Tree` to be then used for syntax highlighting.
-(TODO add images)
-
-### LSP Server (trunkls)
-An LSP server that provides completions and hover information to editors powered by `tree-sitter`'s incremental updates via `texter`.
-See (TODO add link once uploaded)
+### LSP Server for Trunk (trunkls)
+An LSP server that provides completions and hover information to editors for `trunk`'s custom HTML attributes. 
+The sections where `texter` is used are fairly simple to follow. If you intend to take a look on how `texter` 
+can be used in an LSP, this is likely a good starting point.
+See [trunkls](https://github.com/airblast-dev/trunkls) for more information.
 
 ## FAQ
+
+### Can I use this in an editor?
+While technically possible, `texter` is not optimized for very large files (though it still does have some optimizations compared to calling methods on a `String`). 
+The goal of `texter` is to just introduce a high level way to enable incremental updates for an LSP server with minimal boilerplate to the code. 
+
 ### Why create a library for this?
 While attempting to implement an LSP using `tree-sitter`, I had some trouble setting up increlemental updates in a practical way. Out of curiosity I decided to check out other LSP servers implemented in Rust.
 
