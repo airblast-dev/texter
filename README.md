@@ -23,4 +23,4 @@ I noticed two common patterns in their implementation. They either don't bother 
 
 Since the incremental updates are not the main point of the project when developing an LSP server, it often ends up with lesser testing, usability, and extensibility.
 
-While developing my own LSP server I ran into these problems myself, and decided to create this library with the goal of being well tested and performing solution.
+While developing my own LSP server I ran into these problems myself, and decided to create this library with the goal of being a well tested and high performance solution.
