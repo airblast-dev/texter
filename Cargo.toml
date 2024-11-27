@@ -13,11 +13,6 @@ tracing = "0.1.40"
 tree-sitter-html = "0.23.2"
 rstest = "0.23.0"
 criterion = { version = "0.5.1", features = ["html_reports"] }
-ratatui = "0.29.0"
-tree-sitter = { version = "0.24.4" }
-tree-sitter-rust = { version = "0.23.1" }
-streaming-iterator = { version = "0.1.9" }
-rand = { version = "0.8.5" }
 
 [features]
 default = []
@@ -27,8 +22,3 @@ lsp-types = ["dep:lsp-types"]
 [[bench]]
 name = "main"
 harness = false
-
-[[example]]
-name = "simple-text-edit"
-path = "examples/simple-text-edit/main.rs"
-required-features = ["tree-sitter"]
