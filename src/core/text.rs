@@ -116,7 +116,7 @@ impl Text {
     #[instrument(skip(change, updateable))]
     /// Perform an a change on the text.
     ///
-    /// The positions in the provided [`Change`] will be transformed to the expected encoding 
+    /// The positions in the provided [`Change`] will be transformed to the expected encoding
     /// depending on how the [`Text`] was constructed.
     pub fn update<'a, U: Updateable, C: Into<Change<'a>>>(
         &mut self,
