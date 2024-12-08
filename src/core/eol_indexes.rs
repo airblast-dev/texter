@@ -3,15 +3,15 @@ use crate::error::Error;
 use super::lines::FastEOL;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct BrIndexes(pub(crate) Vec<usize>);
+pub struct EolIndexes(pub(crate) Vec<usize>);
 
-impl Default for BrIndexes {
+impl Default for EolIndexes {
     fn default() -> Self {
         Self(vec![0])
     }
 }
 
-impl Clone for BrIndexes {
+impl Clone for EolIndexes {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
@@ -24,13 +24,13 @@ impl Clone for BrIndexes {
 }
 
 // Mainly used to remove duplicate code in tests.
-impl<S: AsRef<[usize]>> PartialEq<S> for BrIndexes {
+impl<S: AsRef<[usize]>> PartialEq<S> for EolIndexes {
     fn eq(&self, other: &S) -> bool {
         self.0 == other.as_ref()
     }
 }
 
-impl BrIndexes {
+impl EolIndexes {
     #[inline]
     pub fn new(s: &str) -> Self {
         let iter = FastEOL::new(s);
@@ -165,19 +165,19 @@ fn no_row() -> ! {
 
 #[cfg(test)]
 mod tests {
-    use crate::{core::br_indexes::BrIndexes, error::Error};
+    use crate::{core::eol_indexes::EolIndexes, error::Error};
 
     const S: &str = "ads\nasdas\n\n\nasdad\n\nasdasd\nasd\na\n";
 
     #[test]
     fn new() {
-        let br = BrIndexes::new(S);
+        let br = EolIndexes::new(S);
         assert_eq!(br.0, [0, 3, 9, 10, 11, 17, 18, 25, 29, 31]);
     }
 
     #[test]
     fn row_start() {
-        let br = BrIndexes::new(S);
+        let br = EolIndexes::new(S);
         assert_eq!(br.row_start(0), Ok(0));
         assert_eq!(br.row_start(1), Ok(4));
         assert_eq!(br.row_start(2), Ok(10));
@@ -199,69 +199,69 @@ mod tests {
 
     #[test]
     fn remove_indexes_all() {
-        let mut br = BrIndexes::new(S);
+        let mut br = EolIndexes::new(S);
         br.remove_indexes(0, 9);
         assert_eq!(br, [0]);
     }
 
     #[test]
     fn remove_indexes_from_middle() {
-        let mut br = BrIndexes::new(S);
+        let mut br = EolIndexes::new(S);
         br.remove_indexes(1, 9);
         assert_eq!(br, [0, 3]);
 
-        let mut br = BrIndexes::new(S);
+        let mut br = EolIndexes::new(S);
         br.remove_indexes(3, 5);
         assert_eq!(br, [0, 3, 9, 10, 18, 25, 29, 31]);
 
-        let mut br = BrIndexes::new(S);
+        let mut br = EolIndexes::new(S);
         br.remove_indexes(6, 7);
         assert_eq!(br, [0, 3, 9, 10, 11, 17, 18, 29, 31]);
     }
 
     #[test]
     fn remove_indexes_same_row() {
-        let mut br = BrIndexes::new(S);
+        let mut br = EolIndexes::new(S);
         br.remove_indexes(0, 0);
         assert_eq!(br, [0, 3, 9, 10, 11, 17, 18, 25, 29, 31]);
 
-        let mut br = BrIndexes::new(S);
+        let mut br = EolIndexes::new(S);
         br.remove_indexes(5, 5);
         assert_eq!(br, [0, 3, 9, 10, 11, 17, 18, 25, 29, 31]);
 
-        let mut br = BrIndexes::new(S);
+        let mut br = EolIndexes::new(S);
         br.remove_indexes(9, 9);
         assert_eq!(br, [0, 3, 9, 10, 11, 17, 18, 25, 29, 31]);
     }
 
     #[test]
     fn remove_indexes_last_row() {
-        let mut br = BrIndexes::new(S);
+        let mut br = EolIndexes::new(S);
         br.remove_indexes(4, 9);
         assert_eq!(br, [0, 3, 9, 10, 11]);
 
-        let mut br = BrIndexes::new(S);
+        let mut br = EolIndexes::new(S);
         br.remove_indexes(0, 9);
         assert_eq!(br, [0]);
     }
 
     #[test]
     fn add_offsets() {
-        let mut br = BrIndexes::new(S);
+        let mut br = EolIndexes::new(S);
         br.add_offsets(3, 10);
         assert_eq!(br.0, [0, 3, 9, 10, 21, 27, 28, 35, 39, 41]);
     }
 
     #[test]
     fn sub_offsets() {
-        let mut br = BrIndexes::new(S);
+        let mut br = EolIndexes::new(S);
         br.sub_offsets(0, 2);
         assert_eq!(br.0, [0, 1, 7, 8, 9, 15, 16, 23, 27, 29]);
     }
 
     #[test]
     fn is_last_row() {
-        let br = BrIndexes::new(S);
+        let br = EolIndexes::new(S);
         assert!(!br.is_last_row(0));
         assert!(!br.is_last_row(1));
         assert!(!br.is_last_row(2));
@@ -271,7 +271,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn is_last_row_oob() {
-        let br = BrIndexes::new(S);
+        let br = EolIndexes::new(S);
         assert!(br.is_last_row(10));
     }
 }

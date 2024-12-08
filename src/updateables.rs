@@ -1,6 +1,6 @@
 use tracing::instrument;
 
-use crate::{change::GridIndex, core::br_indexes::BrIndexes, error::Result};
+use crate::{change::GridIndex, core::eol_indexes::EolIndexes, error::Result};
 
 #[derive(Clone, Debug)]
 pub enum ChangeContext<'a> {
@@ -30,9 +30,9 @@ pub struct UpdateContext<'a> {
     /// - [`Text`]: crate::core::text::Text
     pub change: ChangeContext<'a>,
     /// The new breakline positions.
-    pub breaklines: &'a BrIndexes,
+    pub breaklines: &'a EolIndexes,
     /// The old breakline positions.
-    pub old_breaklines: &'a BrIndexes,
+    pub old_breaklines: &'a EolIndexes,
     /// The old string.
     pub old_str: &'a str,
 }
@@ -182,7 +182,7 @@ mod tests {
 
         use crate::{
             change::GridIndex,
-            core::br_indexes::BrIndexes,
+            core::eol_indexes::EolIndexes,
             updateables::{ts::edit_from_ctx, ChangeContext, UpdateContext},
         };
 
@@ -190,8 +190,8 @@ mod tests {
         fn edit_ctx_delete_across_lines() {
             // old_str: "HelJuice";
             let edit = edit_from_ctx(UpdateContext {
-                breaklines: &BrIndexes(vec![0]),
-                old_breaklines: &BrIndexes(vec![0, 12, 16, 20]),
+                breaklines: &EolIndexes(vec![0]),
+                old_breaklines: &EolIndexes(vec![0, 12, 16, 20]),
                 old_str: "Hello World!\n123\nasd\nAppleJuice",
                 change: ChangeContext::Delete {
                     start: GridIndex { row: 0, col: 3 },
@@ -215,8 +215,8 @@ mod tests {
         fn edit_ctx_delete_in_line_first_row() {
             // let old = "Hello World!\nd\nAppleJuice";
             let edit = edit_from_ctx(UpdateContext {
-                breaklines: &BrIndexes(vec![0, 8, 12, 20]),
-                old_breaklines: &BrIndexes(vec![0, 12, 16, 20]),
+                breaklines: &EolIndexes(vec![0, 8, 12, 20]),
+                old_breaklines: &EolIndexes(vec![0, 12, 16, 20]),
                 old_str: "Hello World!\n123\nasd\nAppleJuice",
                 change: ChangeContext::Delete {
                     start: GridIndex { row: 0, col: 3 },
@@ -240,8 +240,8 @@ mod tests {
         fn edit_ctx_delete_in_line_last_row() {
             // let old = "Hello World!\nd\nAppleJuice";
             let edit = edit_from_ctx(UpdateContext {
-                breaklines: &BrIndexes(vec![0, 12, 16, 20]),
-                old_breaklines: &BrIndexes(vec![0, 12, 16, 20]),
+                breaklines: &EolIndexes(vec![0, 12, 16, 20]),
+                old_breaklines: &EolIndexes(vec![0, 12, 16, 20]),
                 old_str: "Hello World!\n123\nasd\nAppleJuice",
                 change: ChangeContext::Delete {
                     start: GridIndex { row: 3, col: 3 },
@@ -264,8 +264,8 @@ mod tests {
         #[test]
         fn edit_ctx_insert() {
             let edit = edit_from_ctx(UpdateContext {
-                breaklines: &BrIndexes(vec![0, 12, 16, 20]),
-                old_breaklines: &BrIndexes(vec![0, 12, 14]),
+                breaklines: &EolIndexes(vec![0, 12, 16, 20]),
+                old_breaklines: &EolIndexes(vec![0, 12, 14]),
                 old_str: "Hello World!\nd\nAppleJuice",
                 change: ChangeContext::Insert {
                     inserted_br_indexes: &[16],
@@ -290,8 +290,8 @@ mod tests {
         fn edit_ctx_replace_shrink() {
             // old = "HelloWelcomedhasgdjh\nAppleJuice";
             let edit = edit_from_ctx(UpdateContext {
-                breaklines: &BrIndexes(vec![0, 20]),
-                old_breaklines: &BrIndexes(vec![0, 12, 31]),
+                breaklines: &EolIndexes(vec![0, 20]),
+                old_breaklines: &EolIndexes(vec![0, 12, 31]),
                 old_str: "Hello World!\ndgsadhasgjdhasgdjh\nAppleJuice",
                 change: ChangeContext::Replace {
                     start: GridIndex { row: 0, col: 5 },
@@ -317,8 +317,8 @@ mod tests {
         fn edit_ctx_replace_grow() {
             //let result = "HelloWelcome\narld!\ndgsadhasgjdhasgdjh\nAppleJuice";
             let edit = edit_from_ctx(UpdateContext {
-                breaklines: &BrIndexes(vec![0, 12, 18, 39]),
-                old_breaklines: &BrIndexes(vec![0, 12, 21]),
+                breaklines: &EolIndexes(vec![0, 12, 18, 39]),
+                old_breaklines: &EolIndexes(vec![0, 12, 21]),
                 old_str: "Hello World!\ndgsadhasgjdhasgdjh\nAppleJuice",
                 change: ChangeContext::Replace {
                     start: GridIndex { row: 0, col: 5 },
@@ -344,8 +344,8 @@ mod tests {
         fn edit_ctx_replace_full() {
             //let result = "HelloWelcome\narld!\ndgsadhasgjdhasgdjh\nAppleJuice";
             let edit = edit_from_ctx(UpdateContext {
-                breaklines: &BrIndexes(vec![0, 10, 19, 20, 21, 39]),
-                old_breaklines: &BrIndexes(vec![0, 12, 31]),
+                breaklines: &EolIndexes(vec![0, 10, 19, 20, 21, 39]),
+                old_breaklines: &EolIndexes(vec![0, 12, 31]),
                 old_str: "Hello World!\ndgsadhasgjdhasgdjh\nAppleJuice",
                 change: ChangeContext::ReplaceFull {
                     text: "sdghfkjhsd\nasdasdas\n\n\nasdasdasdasdasdas\nasdasd",

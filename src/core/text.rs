@@ -9,7 +9,7 @@ use std::{
 use tracing::instrument;
 
 use super::{
-    br_indexes::BrIndexes,
+    eol_indexes::EolIndexes,
     encodings::{EncodingFns, UTF16, UTF32, UTF8},
     lines::{FastEOL, TextLines},
 };
@@ -34,7 +34,7 @@ pub struct Text {
     /// If modifying a [`Text`], the changes should also be reflected in [`BrIndexes`].
     /// This is already done when interacting with the implemented methods, but if the string is
     /// manually modified you should reflect to changes here as well.
-    pub br_indexes: BrIndexes,
+    pub br_indexes: EolIndexes,
     /// The EOL positions of the text, from the previous update.
     ///
     /// The same rules and restrictions that apply to the current [`BrIndexes`] also apply
@@ -44,21 +44,23 @@ pub struct Text {
     ///
     /// This is provided to the [`Updateable`] passed to [`Self::update`] to avoid recalculating
     /// positions.
-    pub old_br_indexes: BrIndexes,
+    pub old_br_indexes: EolIndexes,
     /// The text that is stored.
     ///
     /// When an insertion is performed on line count, a line break is inserted.
     /// This means the string stored is not always an exact one to one copy of its source.
-    /// If you are to compare the text with its source you should normalize their line
-    /// breaks.
+    /// If you are to compare the text with its source you may want to normalize their EOL bytes
+    /// before doing so.
     ///
     /// When manually modifying the string outside of the provided methods, it is up to the user to
     /// assure that `Text.br_indexes` is alligned with what is present in the string. Not
-    /// doing so will eventually result in a panic. If you are only modifying the value through the
+    /// doing so will result in a panic or incorrect results. If you are only modifying the value through the
     /// provided methods, and only reading from the value, this is not an issue as the implemented methods
-    /// guarantee that all of the values are in sync with each other. Before manually modifying the
-    /// value, the current `br_indexes` field should be cloned to `old_br_indexes` this is required
-    /// to correctly update an [`Updateable`] if one is provided.
+    /// guarantee that all of the fields are in sync with each other. Before manually modifying the
+    /// value, the current `br_indexes` field should be cloned to `old_br_indexes` and the changes
+    /// made on the text should also be reflected to `br_indexes`.
+    /// 
+    /// This is required to correctly update an [`Updateable`] if one is provided.
     pub text: String,
     pub(crate) encoding: EncodingFns,
 }
@@ -83,33 +85,33 @@ impl Text {
     /// You should generally prefer this method instead of [`Text::new_utf16`] or [`Text::new_utf32`]
     /// and then transform the positions manually when using multiple encoding positions.
     pub fn new(text: String) -> Self {
-        let br_indexes = BrIndexes::new(&text);
+        let br_indexes = EolIndexes::new(&text);
         Text {
             text,
             br_indexes,
-            old_br_indexes: BrIndexes(vec![]),
+            old_br_indexes: EolIndexes(vec![]),
             encoding: UTF8,
         }
     }
 
     /// Creates a new [`Text`] that expects UTF-16 encoded positions.
     pub fn new_utf16(text: String) -> Self {
-        let br_indexes = BrIndexes::new(&text);
+        let br_indexes = EolIndexes::new(&text);
         Text {
             text,
             br_indexes,
-            old_br_indexes: BrIndexes(vec![]),
+            old_br_indexes: EolIndexes(vec![]),
             encoding: UTF16,
         }
     }
 
     /// Creates a new [`Text`] that expects UTF-32 encoded positions.
     pub fn new_utf32(text: String) -> Self {
-        let br_indexes = BrIndexes::new(&text);
+        let br_indexes = EolIndexes::new(&text);
         Text {
             text,
             br_indexes,
-            old_br_indexes: BrIndexes(vec![]),
+            old_br_indexes: EolIndexes(vec![]),
             encoding: UTF32,
         }
     }
@@ -322,7 +324,7 @@ impl Text {
         s: Cow<'_, str>,
         updateable: &mut U,
     ) -> Result<()> {
-        self.br_indexes = BrIndexes::new(&s);
+        self.br_indexes = EolIndexes::new(&s);
         updateable.update(UpdateContext {
             change: ChangeContext::ReplaceFull { text: s.as_ref() },
             breaklines: &self.br_indexes,
