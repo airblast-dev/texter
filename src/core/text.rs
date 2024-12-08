@@ -182,7 +182,7 @@ impl Text {
         let inserted_br_indexes = {
             let r = self.br_indexes.insert_indexes(at.row + 1, br_indexes);
             // SAFETY: BrIndexes::insert_indexes already validated the input.
-            unsafe { &self.br_indexes.0.get_unchecked(r) }
+            &self.br_indexes.0[r]
         };
 
         updateable.update(UpdateContext {
@@ -233,7 +233,7 @@ impl Text {
                 FastEOL::new(s).map(|bri| bri + start_byte),
             );
             // SAFETY: BrIndexes::replace_indexes already validated the input.
-            unsafe { self.br_indexes.0.get_unchecked(r) }
+            &self.br_indexes.0[r]
         };
 
         updateable.update(UpdateContext {

@@ -87,11 +87,30 @@ impl BrIndexes {
         &mut self,
         start: usize,
         end: usize,
-        replacement: I,
+        mut replacement: I,
     ) -> std::ops::Range<usize> {
-        let mut insert_count = 0;
-        self.0
-            .splice(start + 1..=end, replacement.inspect(|_| insert_count += 1));
+        let replacing_len = end - start;
+        let mut i = 0;
+        for (index, new) in (1..replacing_len + 1).zip(replacement.by_ref()) {
+            self.0[start + index] = new;
+            i = index;
+        }
+
+        let rotate_start = if i < replacing_len {
+            end - (replacing_len - i) + 1
+        } else {
+            end + 1
+        };
+
+        let cur_len = self.0.len();
+        self.0.extend(replacement);
+        let insert_count = self.0.len() - cur_len;
+        if insert_count == 0 {
+            self.0[start + 1 + i..].rotate_left(replacing_len - i);
+            self.0.truncate(self.0.len() - (replacing_len - i));
+        } else {
+            self.0[rotate_start..].rotate_right(insert_count);
+        }
 
         start + 1..start + 1 + insert_count
     }
