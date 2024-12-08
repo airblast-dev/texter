@@ -25,7 +25,7 @@ impl Display for Error {
                 write!(f, "Current max row index is {max}, {current} was provided.")
             }
             Self::InBetweenCharBoundries { encoding } => {
-                write!(f, "Provided position is between char boundries for column position for {encoding:?}.")
+                write!(f, "Provided column position is between char boundries for {encoding:?}.")
             }
         }
     }
