@@ -12,7 +12,7 @@ pub(crate) fn trim_eol_from_end(base_line: &str) -> &str {
     // SAFETY: Since the provided range is based on the length of the str - EOL bytes,
     // worst we can get is an empty str. We only matched on ascii character bytes,
     // and any byte of a multibyte UTF8 character cannot match with any ascii byte.
-    let r = unsafe { base_line.get_unchecked(..base_line.len() - eol_len) };
+    let r = &base_line[..base_line.len() - eol_len];
 
     // Using a debug assert as the line could be long.
     debug_assert!(!r.contains(['\r', '\n']));

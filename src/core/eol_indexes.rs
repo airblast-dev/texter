@@ -90,12 +90,10 @@ impl EolIndexes {
         mut replacement: I,
     ) -> std::ops::Range<usize> {
         let replacing_len = end - start;
-        let s = self.0[start..end + 1].as_mut_ptr();
+        let s = &mut self.0[start..end + 1];
         let i = (1..replacing_len + 1)
             .zip(replacement.by_ref())
-            .map(|(index, new)| unsafe {
-                s.add(index).write(new);
-            })
+            .map(|(index, new)| s[index] = new)
             .count();
 
         let rotate_start = if i < replacing_len {
