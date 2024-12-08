@@ -90,11 +90,13 @@ impl EolIndexes {
         mut replacement: I,
     ) -> std::ops::Range<usize> {
         let replacing_len = end - start;
-        let mut i = 0;
-        for (index, new) in (1..replacing_len + 1).zip(replacement.by_ref()) {
-            self.0[start + index] = new;
-            i = index;
-        }
+        let s = self.0[start..end + 1].as_mut_ptr();
+        let i = (1..replacing_len + 1)
+            .zip(replacement.by_ref())
+            .map(|(index, new)| unsafe {
+                s.add(index).write(new);
+            })
+            .count();
 
         let rotate_start = if i < replacing_len {
             end - (replacing_len - i) + 1
@@ -107,7 +109,15 @@ impl EolIndexes {
         let insert_count = self.0.len() - cur_len;
         if insert_count == 0 {
             self.0[start + 1 + i..].rotate_left(replacing_len - i);
-            self.0.truncate(self.0.len() - (replacing_len - i));
+            // safety variants of set_len require that the range is initialized which is already
+            // done.
+            //
+            // slightly faster than truncating as no checks or drops need to be performed.
+            // instead all is dealt with when the vec is dropped.
+            let new_len = self.0.len() - (replacing_len - i);
+            unsafe {
+                self.0.set_len(new_len);
+            }
         } else {
             self.0[rotate_start..].rotate_right(insert_count);
         }
