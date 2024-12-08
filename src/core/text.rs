@@ -9,8 +9,8 @@ use std::{
 use tracing::instrument;
 
 use super::{
-    eol_indexes::EolIndexes,
     encodings::{EncodingFns, UTF16, UTF32, UTF8},
+    eol_indexes::EolIndexes,
     lines::{FastEOL, TextLines},
 };
 
@@ -59,7 +59,7 @@ pub struct Text {
     /// guarantee that all of the fields are in sync with each other. Before manually modifying the
     /// value, the current `br_indexes` field should be cloned to `old_br_indexes` and the changes
     /// made on the text should also be reflected to `br_indexes`.
-    /// 
+    ///
     /// This is required to correctly update an [`Updateable`] if one is provided.
     pub text: String,
     pub(crate) encoding: EncodingFns,
@@ -183,7 +183,6 @@ impl Text {
         self.br_indexes.add_offsets(at.row, s.len());
         let inserted_br_indexes = {
             let r = self.br_indexes.insert_indexes(at.row + 1, br_indexes);
-            // SAFETY: BrIndexes::insert_indexes already validated the input.
             &self.br_indexes.0[r]
         };
 
@@ -234,7 +233,6 @@ impl Text {
                 end.row,
                 FastEOL::new(s).map(|bri| bri + start_byte),
             );
-            // SAFETY: BrIndexes::replace_indexes already validated the input.
             &self.br_indexes.0[r]
         };
 
