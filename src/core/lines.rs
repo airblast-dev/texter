@@ -38,7 +38,7 @@ impl Iterator for FastEOL<'_> {
     fn next(&mut self) -> Option<Self::Item> {
         let next = self.iter.next();
         self.last_found = next.unwrap_or_default();
-        let Some(mut n) = next else {
+        let Some(n) = next else {
             return self.r.take();
         };
 
@@ -46,7 +46,7 @@ impl Iterator for FastEOL<'_> {
             RC => {
                 if let Some(r) = self.r.as_mut() {
                     if *r + 1 == n {
-                        std::mem::swap(&mut n, r);
+                        *r = n;
                         return next;
                     }
                 }
