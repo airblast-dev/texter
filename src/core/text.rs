@@ -342,15 +342,15 @@ impl Text {
 
     /// returns the nth row including the trailing line break if one if present
     #[inline]
-    fn nth_row(&self, r: usize) -> Result<usize> {
-        self.br_indexes.row_start(r)
+    fn nth_row(&self, nth: usize) -> Result<usize> {
+        self.br_indexes.row_start(nth)
     }
 
     #[inline]
-    pub fn get_row(&self, row: usize) -> Result<&str> {
-        self.lines().nth(row).ok_or(Error::OutOfBoundsRow {
+    pub fn get_row(&self, nth: usize) -> Result<&str> {
+        self.lines().nth(nth).ok_or(Error::OutOfBoundsRow {
             max: self.br_indexes.row_count() - 1,
-            current: row,
+            current: nth,
         })
     }
 
