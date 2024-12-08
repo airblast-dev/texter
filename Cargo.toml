@@ -22,3 +22,7 @@ lsp-types = ["dep:lsp-types"]
 [[bench]]
 name = "main"
 harness = false
+
+[profile.release]
+codegen-units = 1
+lto = "fat"
