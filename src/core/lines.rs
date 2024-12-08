@@ -127,10 +127,7 @@ impl<'a> Iterator for TextLines<'a> {
         Some(trim_eol_from_end(&self.s[start..end]))
     }
 
-    fn count(self) -> usize
-    where
-        Self: Sized,
-    {
+    fn count(self) -> usize {
         self.eol_indexes.len() - self.cursor
     }
 
