@@ -16,7 +16,7 @@ use super::{
 
 use crate::{
     change::{Change, GridIndex},
-    error::Result,
+    error::{Error, Result},
     updateables::{ChangeContext, UpdateContext, Updateable},
 };
 
@@ -347,10 +347,11 @@ impl Text {
     }
 
     #[inline]
-    pub fn get_row(&self, r: usize) -> &str {
-        self.lines()
-            .nth(r)
-            .expect("requested row should never be out of bounds")
+    pub fn get_row(&self, row: usize) -> Result<&str> {
+        self.lines().nth(row).ok_or(Error::OutOfBoundsRow {
+            max: self.br_indexes.row_count() - 1,
+            current: row,
+        })
     }
 
     pub fn lines(&self) -> TextLines {
