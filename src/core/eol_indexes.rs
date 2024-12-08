@@ -151,7 +151,6 @@ impl EolIndexes {
 
     #[inline(always)]
     pub fn last_row(&self) -> Result<usize, Error> {
-        // Cannot panic, Self::row_count should always return at least 1.
         self.row_start(self.row_count() - 1)
     }
 }
