@@ -85,7 +85,7 @@ impl FusedIterator for FastEOL<'_> {}
 /// - [`Text::lines`]: super::text::Text::lines
 #[derive(Clone, Debug)]
 pub struct TextLines<'a> {
-    lf_indexes: &'a [usize],
+    eol_indexes: &'a [usize],
     s: &'a str,
     cursor: usize,
 }
@@ -100,7 +100,7 @@ impl<'a> TextLines<'a> {
             assert!(*l < s.len() || *l == 0);
         }
         Self {
-            lf_indexes: lfs,
+            eol_indexes: lfs,
             s,
             cursor: 0,
         }
@@ -114,11 +114,11 @@ impl<'a> Iterator for TextLines<'a> {
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        let mut start = *self.lf_indexes.get(self.cursor + n)?;
+        let mut start = *self.eol_indexes.get(self.cursor + n)?;
 
         start += (self.cursor + n != 0) as usize;
         let end = self
-            .lf_indexes
+            .eol_indexes
             .get(self.cursor + n + 1)
             .copied()
             .unwrap_or(self.s.len());
@@ -131,11 +131,11 @@ impl<'a> Iterator for TextLines<'a> {
     where
         Self: Sized,
     {
-        self.lf_indexes.len() - self.cursor
+        self.eol_indexes.len() - self.cursor
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let b = self.lf_indexes.len() - self.cursor;
+        let b = self.eol_indexes.len() - self.cursor;
         (b, Some(b))
     }
 }
