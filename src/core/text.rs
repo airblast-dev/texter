@@ -354,6 +354,12 @@ impl Text {
         })
     }
 
+    /// Returns an [`Iterator`] over the lines present in the [`Text`].
+    ///
+    /// # Panics
+    ///
+    /// If any of the fields of [`Text`] is out of sync, the iterator may panic or return
+    /// incorrect results.
     pub fn lines(&self) -> TextLines {
         TextLines::new(self.text.as_str(), &self.br_indexes.0)
     }
