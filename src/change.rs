@@ -1,10 +1,6 @@
 use std::borrow::Cow;
 
-use crate::{
-    core::text::Text,
-    updateables::{ChangeContext, UpdateContext, Updateable},
-    utils::trim_eol_from_end,
-};
+use crate::{core::text::Text, error::Result, utils::trim_eol_from_end};
 
 /// A [`Change`] to be performed on a [`Text`].
 ///
@@ -40,65 +36,6 @@ pub enum Change<'a> {
 pub struct GridIndex {
     pub row: usize,
     pub col: usize,
-}
-
-impl Updateable for GridIndex {
-    /// An implementation of using [`GridIndex`] as a very simple cursor.
-    ///
-    /// You will almost always want to implement your own cursor as it often requires subtle behavior
-    /// changes. This is useful if you just want a dead simple cursor until you implement one specific
-    /// to your use case.
-    ///
-    /// The positions of the [`GridIndex`] are expected, and set to be valid for UTF-8. In case you
-    /// want the position as a different encoding you should transform it via
-    /// TODO: update this after exposing public interface to easily transform positions.
-    fn update(&mut self, ctx: UpdateContext) {
-        match ctx.change {
-            ChangeContext::Insert {
-                position,
-                text,
-                inserted_br_indexes,
-            } => {
-                if text.is_empty() {
-                    return;
-                }
-                self.row += inserted_br_indexes.len();
-                let start_byte_index = ctx.old_breaklines.row_start(position.row) + position.col;
-                let last_lf = inserted_br_indexes
-                    .last()
-                    .copied()
-                    .map(|i| i - start_byte_index)
-                    .unwrap_or_default();
-                if inserted_br_indexes.is_empty() {
-                    self.col += text.len()
-                } else {
-                    self.col = text.len() - last_lf - 1;
-                }
-            }
-            ChangeContext::Delete { start, .. } => {
-                *self = start;
-            }
-            ChangeContext::Replace {
-                start,
-                text,
-                inserted_br_indexes,
-                ..
-            } => {
-                self.row += inserted_br_indexes.len();
-                let start_byte_index = ctx.old_breaklines.row_start(start.row) + start.col;
-                let last_lf = inserted_br_indexes
-                    .last()
-                    .copied()
-                    .map(|i| i - start_byte_index)
-                    .unwrap_or_default();
-                self.col = text.len() - last_lf;
-            }
-            ChangeContext::ReplaceFull { text } => {
-                self.row += ctx.breaklines.last_row();
-                self.col += text.len() - ctx.breaklines.row_start(self.row);
-            }
-        }
-    }
 }
 
 #[cfg(feature = "tree-sitter")]
@@ -226,45 +163,44 @@ impl GridIndex {
     ///
     /// If the row value of the [`GridIndex`] is same as the number of rows, this will insert a
     /// line break.
-    pub fn normalize(&mut self, text: &mut Text) {
+    pub fn normalize(&mut self, text: &mut Text) -> Result<()> {
         let br_indexes = &mut text.br_indexes;
         let mut row_count = br_indexes.row_count();
         if self.row == row_count {
-            br_indexes.insert_index(self.row, br_indexes.last_row());
+            br_indexes.insert_index(self.row, br_indexes.last_row()?);
             text.text.push('\n');
             row_count += 1;
         }
 
-        let row_start = br_indexes.row_start(self.row);
+        let row_start = br_indexes.row_start(self.row)?;
         let pure_line = if !br_indexes.is_last_row(self.row) && row_count > 1 {
-            let row_end = br_indexes.row_start(self.row + 1);
+            let row_end = br_indexes.row_start(self.row + 1)?;
             let base_line = &text.text[row_start..row_end];
             trim_eol_from_end(base_line)
         } else {
             &text.text[row_start..]
         };
 
-        self.col = (text.encoding[0])(pure_line, self.col);
+        self.col = (text.encoding[0])(pure_line, self.col)?;
 
-        assert!(
-            row_count > self.row,
-            "Row value should be at most, row_count"
-        );
+        Ok(())
     }
 
     /// Transform the positions to the [`Text`]'s expected encoding, from UTF-8 positions.
-    pub fn denormalize(&mut self, text: &Text) {
+    pub fn denormalize(&mut self, text: &Text) -> Result<()> {
         let br_indexes = &text.br_indexes;
         let row_count = br_indexes.row_count();
-        let row_start = br_indexes.row_start(self.row);
+        let row_start = br_indexes.row_start(self.row)?;
         let pure_line = if !br_indexes.is_last_row(self.row) && row_count > 1 {
-            let row_end = br_indexes.row_start(self.row + 1);
+            let row_end = br_indexes.row_start(self.row + 1)?;
             let base_line = &text.text[row_start..row_end];
             trim_eol_from_end(base_line)
         } else {
             &text.text[row_start..]
         };
 
-        self.col = (text.encoding[1])(pure_line, self.col);
+        self.col = (text.encoding[1])(pure_line, self.col)?;
+
+        Ok(())
     }
 }

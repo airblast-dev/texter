@@ -1,6 +1,6 @@
 use tracing::instrument;
 
-use crate::{change::GridIndex, core::br_indexes::BrIndexes};
+use crate::{change::GridIndex, core::br_indexes::BrIndexes, error::Result};
 
 #[derive(Clone, Debug)]
 pub enum ChangeContext<'a> {
@@ -38,25 +38,31 @@ pub struct UpdateContext<'a> {
 }
 
 pub trait Updateable {
-    fn update(&mut self, ctx: UpdateContext);
+    fn update(&mut self, ctx: UpdateContext) -> Result<()>;
 }
 
 impl Updateable for () {
-    fn update(&mut self, _: UpdateContext) {}
+    fn update(&mut self, _: UpdateContext) -> Result<()> {
+        Ok(())
+    }
 }
 
 impl<T: Updateable> Updateable for [T] {
-    fn update(&mut self, ctx: UpdateContext) {
-        self.iter_mut().for_each(|a| a.update(ctx.clone()));
+    fn update(&mut self, ctx: UpdateContext) -> Result<()> {
+        for u in self.iter_mut() {
+            u.update(ctx.clone())?;
+        }
+
+        Ok(())
     }
 }
 
 impl<'a, T> Updateable for T
 where
-    T: 'a + FnMut(UpdateContext),
+    T: 'a + FnMut(UpdateContext) -> Result<()>,
 {
     #[instrument(skip(self))]
-    fn update(&mut self, ctx: UpdateContext) {
+    fn update(&mut self, ctx: UpdateContext) -> Result<()> {
         self(ctx)
     }
 }
@@ -66,21 +72,24 @@ mod ts {
     use tracing::info;
     use tree_sitter::{InputEdit, Point, Tree};
 
+    use crate::error::Result;
+
     use super::{ChangeContext, UpdateContext, Updateable};
 
     impl Updateable for Tree {
-        fn update(&mut self, ctx: UpdateContext) {
-            self.edit(&edit_from_ctx(ctx));
+        fn update(&mut self, ctx: UpdateContext) -> Result<()> {
+            self.edit(&edit_from_ctx(ctx)?);
+            Ok(())
         }
     }
 
-    pub(super) fn edit_from_ctx(ctx: UpdateContext) -> InputEdit {
+    pub(super) fn edit_from_ctx(ctx: UpdateContext) -> Result<InputEdit> {
         let old_br = ctx.old_breaklines;
         let new_br = ctx.breaklines;
         let ie = match ctx.change {
             ChangeContext::Delete { start, end } => {
-                let start_byte = old_br.row_start(start.row) + start.col;
-                let end_byte = old_br.row_start(end.row) + end.col;
+                let start_byte = old_br.row_start(start.row)? + start.col;
+                let end_byte = old_br.row_start(end.row)? + end.col;
 
                 InputEdit {
                     start_position: start.into(),
@@ -96,7 +105,7 @@ mod ts {
                 position,
                 text,
             } => {
-                let start_byte = old_br.row_start(position.row) + position.col;
+                let start_byte = old_br.row_start(position.row)? + position.col;
                 let new_end_byte = start_byte + text.len();
                 InputEdit {
                     start_byte,
@@ -120,8 +129,8 @@ mod ts {
                 text,
                 inserted_br_indexes,
             } => {
-                let start_byte = old_br.row_start(start.row) + start.col;
-                let old_end_byte = old_br.row_start(end.row) + end.col;
+                let start_byte = old_br.row_start(start.row)? + start.col;
+                let old_end_byte = old_br.row_start(end.row)? + end.col;
                 InputEdit {
                     start_byte,
                     start_position: start.into(),
@@ -152,16 +161,16 @@ mod ts {
                 start_position: Point { row: 0, column: 0 },
                 old_end_position: Point {
                     row: old_br.row_count() - 1,
-                    column: ctx.old_str.len() - old_br.last_row(),
+                    column: ctx.old_str.len() - old_br.last_row()?,
                 },
                 new_end_position: Point {
                     row: new_br.row_count() - 1,
-                    column: text.len() - new_br.last_row(),
+                    column: text.len() - new_br.last_row()?,
                 },
             },
         };
         info!("{:?}", ie);
-        ie
+        Ok(ie)
     }
 }
 
@@ -199,7 +208,7 @@ mod tests {
                 new_end_position: Point { row: 0, column: 3 },
             };
 
-            assert_eq!(edit, correct_edit);
+            assert_eq!(edit, Ok(correct_edit));
         }
 
         #[test]
@@ -224,7 +233,7 @@ mod tests {
                 new_end_position: Point { row: 0, column: 3 },
             };
 
-            assert_eq!(edit, correct_edit);
+            assert_eq!(edit, Ok(correct_edit));
         }
 
         #[test]
@@ -249,7 +258,7 @@ mod tests {
                 new_end_position: Point { row: 3, column: 3 },
             };
 
-            assert_eq!(edit, correct_edit);
+            assert_eq!(edit, Ok(correct_edit));
         }
 
         #[test]
@@ -274,7 +283,7 @@ mod tests {
                 new_end_position: Point { row: 2, column: 2 },
             };
 
-            assert_eq!(edit, correct_edit);
+            assert_eq!(edit, Ok(correct_edit));
         }
 
         #[test]
@@ -301,7 +310,7 @@ mod tests {
                 new_end_position: Point { row: 0, column: 12 },
             };
 
-            assert_eq!(edit, correct_edit);
+            assert_eq!(edit, Ok(correct_edit));
         }
 
         #[test]
@@ -328,7 +337,7 @@ mod tests {
                 new_end_position: Point { row: 1, column: 1 },
             };
 
-            assert_eq!(edit, correct_edit);
+            assert_eq!(edit, Ok(correct_edit));
         }
 
         #[test]
@@ -352,7 +361,7 @@ mod tests {
                 new_end_position: Point { row: 5, column: 6 },
             };
 
-            assert_eq!(edit, correct_edit);
+            assert_eq!(edit, Ok(correct_edit));
         }
     }
 
@@ -403,17 +412,23 @@ mod tests {
         #[case::long_single_br("some-attrasdasdasdasdas\ndasdasdasdasd")]
         #[case::long_multiple_br("some-attrasdas\ndasdasdasdasda\n\n\n\nsdas\n\nda\nsd\n")]
         fn insert(#[case] inserted: &str, mut html_text: Text, mut html_tree: Tree) {
-            html_text.update(
-                Change::Insert {
-                    at: ATTRIBUTE_NAME_POS.into(),
-                    text: inserted.into(),
-                },
-                &mut html_tree,
-            );
+            html_text
+                .update(
+                    Change::Insert {
+                        at: ATTRIBUTE_NAME_POS.into(),
+                        text: inserted.into(),
+                    },
+                    &mut html_tree,
+                )
+                .unwrap();
 
             let mut modified: String = SAMPLE_HTML.to_string();
             modified.insert_str(
-                html_text.br_indexes.row_start(ATTRIBUTE_NAME_POS.row) + ATTRIBUTE_NAME_POS.column,
+                html_text
+                    .br_indexes
+                    .row_start(ATTRIBUTE_NAME_POS.row)
+                    .unwrap()
+                    + ATTRIBUTE_NAME_POS.column,
                 inserted,
             );
 
@@ -426,8 +441,8 @@ mod tests {
                 .parse(html_text.text.as_str(), Some(&html_tree))
                 .unwrap();
             let mut prev = 0;
-            for br in
-                (1..html_text.br_indexes.row_count()).map(|i| html_text.br_indexes.row_start(i))
+            for br in (1..html_text.br_indexes.row_count())
+                .map(|i| html_text.br_indexes.row_start(i).unwrap())
             {
                 for i in prev..br {
                     let a = updated_html.root_node().descendant_for_byte_range(i, i);
@@ -462,11 +477,13 @@ mod tests {
         ) {
             let mut modified: String = SAMPLE_HTML.to_string();
             modified.drain(
-                html_text.br_indexes.row_start(start.row) + start.col
-                    ..html_text.br_indexes.row_start(end.row) + end.col,
+                html_text.br_indexes.row_start(start.row).unwrap() + start.col
+                    ..html_text.br_indexes.row_start(end.row).unwrap() + end.col,
             );
 
-            html_text.update(Change::Delete { start, end }, &mut html_tree);
+            html_text
+                .update(Change::Delete { start, end }, &mut html_tree)
+                .unwrap();
 
             let modified = Text::new(modified);
 
@@ -477,8 +494,8 @@ mod tests {
                 .parse(html_text.text.as_str(), Some(&html_tree))
                 .unwrap();
             let mut prev = 0;
-            for br in
-                (1..html_text.br_indexes.row_count()).map(|i| html_text.br_indexes.row_start(i))
+            for br in (1..html_text.br_indexes.row_count())
+                .map(|i| html_text.br_indexes.row_start(i).unwrap())
             {
                 for i in prev..br {
                     let a = updated_html.root_node().descendant_for_byte_range(i, i);

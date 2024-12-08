@@ -1,4 +1,6 @@
-pub(crate) type EncodingFn = fn(&str, usize) -> usize;
+use crate::error::Error;
+
+pub(crate) type EncodingFn = fn(&str, usize) -> Result<usize, Error>;
 pub(crate) type EncodingFns = [EncodingFn; 2];
 
 pub(crate) const UTF8: EncodingFns = [utf8::to, utf8::from];
@@ -9,48 +11,53 @@ pub(crate) const UTF32: EncodingFns = [utf32::to, utf32::from];
 
 pub mod utf8 {
 
-    use super::between_code_points;
+    use crate::error::{Encoding, Error};
 
     #[inline]
-    pub(super) fn to(s: &str, nth: usize) -> usize {
-        if !s.is_char_boundary(nth) && s.len() < nth {
-            between_code_points();
+    pub(super) fn to(s: &str, nth: usize) -> Result<usize, Error> {
+        if !s.is_char_boundary(nth) {
+            return Err(Error::InBetweenCharBoundries {
+                encoding: Encoding::UTF8,
+            });
         }
-        nth.min(s.len())
+
+        Ok(nth.min(s.len()))
     }
 
     #[inline]
-    pub(super) fn from(s: &str, nth: usize) -> usize {
+    pub(super) fn from(s: &str, nth: usize) -> Result<usize, Error> {
         to(s, nth)
     }
 }
 
 pub mod utf16 {
-    use super::between_code_points;
+    use crate::error::{Encoding, Error};
 
     /// Converts UTF16 indexes to UTF8 indexes but also allows code point + 1 to be used in range operations.
-    pub(super) fn to(s: &str, nth: usize) -> usize {
+    pub(super) fn to(s: &str, nth: usize) -> Result<usize, Error> {
         let mut total_code_points = 0;
         if nth == 0 {
-            return 0;
+            return Ok(0);
         }
         for (utf8_index, utf8_len, utf16_len) in s
             .char_indices()
             .map(|(i, c)| (i, c.len_utf8(), c.len_utf16()))
         {
             if total_code_points > nth {
-                between_code_points();
+                return Err(Error::InBetweenCharBoundries {
+                    encoding: Encoding::UTF16,
+                });
             }
             total_code_points += utf16_len;
             if total_code_points == nth {
-                return utf8_index + utf8_len;
+                return Ok(utf8_index + utf8_len);
             }
         }
 
-        nth.min(s.len())
+        Ok(nth.min(s.len()))
     }
 
-    pub(super) fn from(s: &str, col: usize) -> usize {
+    pub(super) fn from(s: &str, col: usize) -> Result<usize, Error> {
         let mut utf8_len = 0;
         let mut utf16_len = 0;
         for c in s.chars() {
@@ -61,27 +68,19 @@ pub mod utf16 {
             utf16_len += c.len_utf16();
         }
 
-        utf16_len
+        Ok(utf16_len)
     }
 }
 
 mod utf32 {
-    use super::char_oob;
+    use crate::error::Error;
 
     #[inline]
-    pub(super) fn to(s: &str, nth: usize) -> usize {
-        let mut counter = 0;
-        let Some((i, _)) = s.char_indices().inspect(|_| counter += 1).nth(nth) else {
-            if counter + 1 == nth {
-                return s.len();
-            }
-            char_oob(counter, nth);
-        };
-
-        i
+    pub(super) fn to(s: &str, nth: usize) -> Result<usize, Error> {
+        Ok(s.char_indices().map(|(i, _)| i).nth(nth).unwrap_or(s.len()))
     }
 
-    pub(super) fn from(s: &str, nth: usize) -> usize {
+    pub(super) fn from(s: &str, nth: usize) -> Result<usize, Error> {
         let mut len_utf8 = 0;
         let mut i = 0;
         for c in s.chars() {
@@ -93,22 +92,6 @@ mod utf32 {
             len_utf8 += c.len_utf8();
         }
 
-        i
+        Ok(i)
     }
-}
-
-#[cold]
-#[inline(never)]
-#[track_caller]
-fn char_oob(byte_index: usize, byte_count: usize) -> ! {
-    panic!(
-        "exclusive byte index should never more than byte count + 1 -> {byte_index} <= {byte_count} + 1"
-    )
-}
-
-#[cold]
-#[inline(never)]
-#[track_caller]
-fn between_code_points() {
-    panic!("position should never be between code points");
 }

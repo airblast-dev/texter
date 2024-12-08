@@ -16,6 +16,7 @@ use super::{
 
 use crate::{
     change::{Change, GridIndex},
+    error::Result,
     updateables::{ChangeContext, UpdateContext, Updateable},
 };
 
@@ -122,23 +123,15 @@ impl Text {
         &mut self,
         change: C,
         updateable: &mut U,
-    ) {
+    ) -> Result<()> {
         // not sure why but my editor gets confused without specifying the type
         let change: Change = change.into();
 
         match change {
-            Change::Delete { start, end } => {
-                self.delete(start, end, updateable);
-            }
-            Change::Insert { text, at } => {
-                self.insert(&text, at, updateable);
-            }
-            Change::Replace { text, start, end } => {
-                self.replace(&text, start, end, updateable);
-            }
-            Change::ReplaceFull(s) => {
-                self.replace_full(s, updateable);
-            }
+            Change::Delete { start, end } => self.delete(start, end, updateable),
+            Change::Insert { text, at } => self.insert(&text, at, updateable),
+            Change::Replace { text, start, end } => self.replace(&text, start, end, updateable),
+            Change::ReplaceFull(s) => self.replace_full(s, updateable),
         }
     }
     #[inline]
@@ -147,12 +140,12 @@ impl Text {
         mut start: GridIndex,
         mut end: GridIndex,
         updateable: &mut U,
-    ) {
+    ) -> Result<()> {
         self.update_prep();
-        start.normalize(self);
-        end.normalize(self);
-        let row_start_index = self.nth_row(start.row);
-        let row_end_index = self.nth_row(end.row);
+        start.normalize(self)?;
+        end.normalize(self)?;
+        let row_start_index = self.nth_row(start.row)?;
+        let row_end_index = self.nth_row(end.row)?;
         let start_byte = row_start_index + start.col;
         let end_byte = row_end_index + end.col;
         let byte_range = start_byte..end_byte;
@@ -166,16 +159,23 @@ impl Text {
             breaklines: &self.br_indexes,
             old_breaklines: &self.old_br_indexes,
             old_str: self.text.as_str(),
-        });
+        })?;
 
         self.text.drain(byte_range);
+
+        Ok(())
     }
 
     #[inline]
-    pub fn insert<U: Updateable>(&mut self, s: &str, mut at: GridIndex, updateable: &mut U) {
+    pub fn insert<U: Updateable>(
+        &mut self,
+        s: &str,
+        mut at: GridIndex,
+        updateable: &mut U,
+    ) -> Result<()> {
         self.update_prep();
-        at.normalize(self);
-        let row_end_index = self.nth_row(at.row);
+        at.normalize(self)?;
+        let row_end_index = self.nth_row(at.row)?;
         let end_byte = row_end_index + at.col;
         let br_indexes = FastEOL::new(s).map(|i| i + end_byte);
         self.br_indexes.add_offsets(at.row, s.len());
@@ -194,9 +194,11 @@ impl Text {
             breaklines: &self.br_indexes,
             old_breaklines: &self.old_br_indexes,
             old_str: self.text.as_str(),
-        });
+        })?;
 
         self.text.insert_str(end_byte, s);
+
+        Ok(())
     }
 
     #[inline]
@@ -206,12 +208,12 @@ impl Text {
         mut start: GridIndex,
         mut end: GridIndex,
         updateable: &mut U,
-    ) {
+    ) -> Result<()> {
         self.update_prep();
-        start.normalize(self);
-        end.normalize(self);
-        let row_start_index = self.nth_row(start.row);
-        let row_end_index = self.nth_row(end.row);
+        start.normalize(self)?;
+        end.normalize(self)?;
+        let row_start_index = self.nth_row(start.row)?;
+        let row_end_index = self.nth_row(end.row)?;
         let start_byte = row_start_index + start.col;
         let end_byte = row_end_index + end.col;
         let byte_range = start_byte..end_byte;
@@ -244,7 +246,7 @@ impl Text {
             breaklines: &self.br_indexes,
             old_breaklines: &self.old_br_indexes,
             old_str: self.text.as_str(),
-        });
+        })?;
 
         // String::replace_range contains quite a bit of checks that we do not need.
         // It also internally uses splicing, which (probably) causes the elements to be
@@ -310,17 +312,23 @@ impl Text {
         }
 
         fast_replace_range(&mut self.text, byte_range, s);
+
+        Ok(())
     }
 
     #[inline]
-    pub fn replace_full<U: Updateable>(&mut self, s: Cow<'_, str>, updateable: &mut U) {
+    pub fn replace_full<U: Updateable>(
+        &mut self,
+        s: Cow<'_, str>,
+        updateable: &mut U,
+    ) -> Result<()> {
         self.br_indexes = BrIndexes::new(&s);
         updateable.update(UpdateContext {
             change: ChangeContext::ReplaceFull { text: s.as_ref() },
             breaklines: &self.br_indexes,
             old_breaklines: &self.old_br_indexes,
             old_str: self.text.as_str(),
-        });
+        })?;
         match s {
             Cow::Borrowed(s) => {
                 self.text.clear();
@@ -328,11 +336,13 @@ impl Text {
             }
             Cow::Owned(s) => self.text = s,
         };
+
+        Ok(())
     }
 
     /// returns the nth row including the trailing line break if one if present
     #[inline]
-    fn nth_row(&self, r: usize) -> usize {
+    fn nth_row(&self, r: usize) -> Result<usize> {
         self.br_indexes.row_start(r)
     }
 
@@ -354,7 +364,7 @@ impl Text {
 
 #[cfg(test)]
 mod tests {
-    use crate::change::GridIndex;
+    use crate::{change::GridIndex, error::Error};
 
     use super::Text;
 
@@ -364,11 +374,15 @@ mod tests {
     fn nth_row() {
         let t = Text::new("Apple\nOrange\nBanana\nCoconut\nFruity".into());
         assert_eq!(t.br_indexes, [0, 5, 12, 19, 27]);
-        assert_eq!(t.nth_row(0), 0);
-        assert_eq!(t.nth_row(1), 6);
-        assert_eq!(t.nth_row(2), 13);
-        assert_eq!(t.nth_row(3), 20);
-        assert_eq!(t.nth_row(4), 28);
+        assert_eq!(t.nth_row(0), Ok(0));
+        assert_eq!(t.nth_row(1), Ok(6));
+        assert_eq!(t.nth_row(2), Ok(13));
+        assert_eq!(t.nth_row(3), Ok(20));
+        assert_eq!(t.nth_row(4), Ok(28));
+        assert_eq!(
+            t.nth_row(5),
+            Err(Error::OutOfBoundsRow { max: 4, current: 5 })
+        );
     }
 
     mod delete {
@@ -382,7 +396,8 @@ mod tests {
                 GridIndex { row: 0, col: 1 },
                 GridIndex { row: 0, col: 6 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(t.br_indexes, [0]);
             assert_eq!(t.text, "H World!");
@@ -396,7 +411,8 @@ mod tests {
                 GridIndex { row: 1, col: 3 },
                 GridIndex { row: 3, col: 2 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(t.br_indexes, [0, 13]);
             assert_eq!(t.text, "Hello, World!\nAppars");
@@ -410,7 +426,8 @@ mod tests {
                 GridIndex { row: 0, col: 1 },
                 GridIndex { row: 0, col: 4 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(t.br_indexes, [0, 10, 17, 26]);
             assert_eq!(t.text, "Ho, World!\nApples\n Oranges\nPears");
@@ -424,7 +441,8 @@ mod tests {
                 GridIndex { row: 0, col: 0 },
                 GridIndex { row: 0, col: 4 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(t.br_indexes, [0, 9, 16, 25]);
             assert_eq!(t.text, "o, World!\nApples\n Oranges\nPears");
@@ -438,7 +456,8 @@ mod tests {
                 GridIndex { row: 0, col: 3 },
                 GridIndex { row: 1, col: 4 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(t.br_indexes, [0, 5, 14]);
             assert_eq!(t.text, "Helbs\n Oranges\nPears");
@@ -452,7 +471,8 @@ mod tests {
                 GridIndex { row: 2, col: 3 },
                 GridIndex { row: 3, col: 2 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(t.br_indexes, [0, 13, 20]);
             assert_eq!(t.text, "Hello, World!\nApplbs\n Orars");
@@ -466,7 +486,8 @@ mod tests {
                 GridIndex { row: 2, col: 1 },
                 GridIndex { row: 2, col: 4 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(t.br_indexes, [0, 13, 20, 26]);
             assert_eq!(t.text, "Hello, World!\nApples\n nges\nPears");
@@ -480,7 +501,8 @@ mod tests {
                 GridIndex { row: 3, col: 1 },
                 GridIndex { row: 3, col: 4 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
             assert_eq!(t.text, "Hello, World!\nApples\n Oranges\nPs");
@@ -494,7 +516,8 @@ mod tests {
                 GridIndex { row: 0, col: 0 },
                 GridIndex { row: 0, col: 5 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(t.br_indexes, [0, 8, 15, 24]);
             assert_eq!(t.text, ", World!\nApples\n Oranges\nPears");
@@ -508,7 +531,8 @@ mod tests {
                 GridIndex { row: 3, col: 0 },
                 GridIndex { row: 3, col: 5 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(t.br_indexes, [0, 13, 20, 29]);
             assert_eq!(t.text, "Hello, World!\nApples\n Oranges\n");
@@ -522,7 +546,8 @@ mod tests {
                 GridIndex { row: 1, col: 8 },
                 GridIndex { row: 2, col: 0 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(t.br_indexes, [0, 13]);
             assert_eq!(t.text, "Hello, World!\nBadApple");
@@ -536,7 +561,8 @@ mod tests {
                 GridIndex { row: 1, col: 0 },
                 GridIndex { row: 2, col: 0 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(t.br_indexes, [0, 13, 14, 23]);
             assert_eq!(t.text, "Hello, World!\n\nBadApple\n");
@@ -553,7 +579,8 @@ mod tests {
                 GridIndex { row: 1, col: 3 },
                 GridIndex { row: 5, col: 2 },
                 &mut (),
-            );
+            )
+            .unwrap();
             assert_eq!(t.br_indexes, [0, 13, 21]);
             assert_eq!(t.text, "Hello, World!\nBanhawk\nShrek is a great movie.");
         }
@@ -586,7 +613,8 @@ mod tests {
                 GridIndex { row: 1, col: 3 },
                 GridIndex { row: 5, col: 0 },
                 &mut (),
-            );
+            )
+            .unwrap();
             assert_eq!(
                 t.br_indexes,
                 [0, 81, 151, 209, 288, 382, 383, 441, 502, 605]
@@ -615,7 +643,8 @@ mod tests {
         fn into_empty() {
             let mut t = Text::new(String::new());
             assert_eq!(t.br_indexes.0, [0]);
-            t.insert("Hello, World!", GridIndex { row: 0, col: 0 }, &mut ());
+            t.insert("Hello, World!", GridIndex { row: 0, col: 0 }, &mut ())
+                .unwrap();
 
             assert_eq!(t.text, "Hello, World!");
             assert_eq!(t.br_indexes, [0]);
@@ -625,7 +654,8 @@ mod tests {
         fn in_start() {
             let mut t = Text::new(String::from("Apples"));
             assert_eq!(t.br_indexes.0, [0]);
-            t.insert("Hello, World!", GridIndex { row: 0, col: 0 }, &mut ());
+            t.insert("Hello, World!", GridIndex { row: 0, col: 0 }, &mut ())
+                .unwrap();
 
             assert_eq!(t.text, "Hello, World!Apples");
             assert_eq!(t.br_indexes, [0]);
@@ -635,7 +665,8 @@ mod tests {
         fn in_end() {
             let mut t = Text::new(String::from("Apples"));
             assert_eq!(t.br_indexes.0, [0]);
-            t.insert("Hello, \nWorld!\n", GridIndex { row: 0, col: 6 }, &mut ());
+            t.insert("Hello, \nWorld!\n", GridIndex { row: 0, col: 6 }, &mut ())
+                .unwrap();
 
             assert_eq!(t.text, "ApplesHello, \nWorld!\n");
             assert_eq!(t.br_indexes, [0, 13, 20]);
@@ -645,7 +676,8 @@ mod tests {
         fn end_of_multiline() {
             let mut t = Text::new(String::from("Apples\nBashdjad\nashdkasdh\nasdsad"));
             assert_eq!(t.br_indexes.0, [0, 6, 15, 25]);
-            t.insert("Hello, \nWorld!\n", GridIndex { row: 3, col: 2 }, &mut ());
+            t.insert("Hello, \nWorld!\n", GridIndex { row: 3, col: 2 }, &mut ())
+                .unwrap();
 
             assert_eq!(
                 t.text,
@@ -658,7 +690,8 @@ mod tests {
         fn multi_line_in_middle() {
             let mut t = Text::new(String::from("ABC\nDEF"));
             assert_eq!(t.br_indexes.0, [0, 3]);
-            t.insert("Hello,\n World!\n", GridIndex { row: 1, col: 1 }, &mut ());
+            t.insert("Hello,\n World!\n", GridIndex { row: 1, col: 1 }, &mut ())
+                .unwrap();
 
             assert_eq!(t.text, "ABC\nDHello,\n World!\nEF");
             assert_eq!(t.br_indexes.0, [0, 3, 11, 19]);
@@ -668,7 +701,8 @@ mod tests {
         fn single_line_in_middle() {
             let mut t = Text::new(String::from("ABC\nDEF"));
             assert_eq!(t.br_indexes.0, [0, 3]);
-            t.insert("Hello, World!", GridIndex { row: 0, col: 1 }, &mut ());
+            t.insert("Hello, World!", GridIndex { row: 0, col: 1 }, &mut ())
+                .unwrap();
 
             assert_eq!(t.text, "AHello, World!BC\nDEF");
             assert_eq!(t.br_indexes.0, [0, 16]);
@@ -682,7 +716,8 @@ mod tests {
                 "\nHello, ゲートWorld!\n",
                 GridIndex { row: 0, col: 3 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(
                 t.text,
@@ -700,7 +735,7 @@ mod tests {
         }
 
         #[test]
-        fn long_text_single_byte() {
+        fn long_text_single_byte() -> Result<(), Error> {
             let mut t = Text::new(
                 "1234567\nABCD\nHELLO\nWORLD\nSOMELONGLINEFORTESTINGVARIOUSCASES\nAHAHHAHAH".into(),
             );
@@ -711,7 +746,8 @@ mod tests {
                 "Apple Juice\nBananaMilkshake\nWobbly",
                 GridIndex { row: 4, col: 5 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(
                 t.text,
@@ -720,38 +756,40 @@ mod tests {
             assert_eq!(t.br_indexes, [0, 7, 12, 18, 24, 41, 57, 93]);
 
             assert_eq!(
-                &t.text[t.br_indexes.row_start(0)..t.br_indexes.0[1]],
+                &t.text[t.br_indexes.row_start(0)?..t.br_indexes.0[1]],
                 "1234567"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(1)..t.br_indexes.0[2]],
+                &t.text[t.br_indexes.row_start(1)?..t.br_indexes.0[2]],
                 "ABCD"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(2)..t.br_indexes.0[3]],
+                &t.text[t.br_indexes.row_start(2)?..t.br_indexes.0[3]],
                 "HELLO"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(3)..t.br_indexes.0[4]],
+                &t.text[t.br_indexes.row_start(3)?..t.br_indexes.0[4]],
                 "WORLD"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(4)..t.br_indexes.0[5]],
+                &t.text[t.br_indexes.row_start(4)?..t.br_indexes.0[5]],
                 "SOMELApple Juice"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(5)..t.br_indexes.0[6]],
+                &t.text[t.br_indexes.row_start(5)?..t.br_indexes.0[6]],
                 "BananaMilkshake"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(6)..t.br_indexes.0[7]],
+                &t.text[t.br_indexes.row_start(6)?..t.br_indexes.0[7]],
                 "WobblyONGLINEFORTESTINGVARIOUSCASES"
             );
-            assert_eq!(&t.text[t.br_indexes.row_start(7)..], "AHAHHAHAH");
+            assert_eq!(&t.text[t.br_indexes.row_start(7)?..], "AHAHHAHAH");
+
+            Ok(())
         }
 
         #[test]
-        fn long_text_multi_byte() {
+        fn long_text_multi_byte() -> Result<(), Error> {
             let mut t = Text::new(
                 "シュタ\nHello, ゲートWorld!\nインズ・ゲートは素晴らしいです。\nこんにちは世界！"
                     .to_string(),
@@ -763,7 +801,8 @@ mod tests {
                 "Olá, mundo!\nWaltuh Put the fork away Waltuh.",
                 GridIndex { row: 2, col: 3 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(
                 t.text,
@@ -773,22 +812,24 @@ mod tests {
             assert_eq!(t.br_indexes, [0, 9, 32, 48, 126]);
 
             assert_eq!(
-                &t.text[t.br_indexes.row_start(0)..t.br_indexes.0[1]],
+                &t.text[t.br_indexes.row_start(0)?..t.br_indexes.0[1]],
                 "シュタ"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(1)..t.br_indexes.0[2]],
+                &t.text[t.br_indexes.row_start(1)?..t.br_indexes.0[2]],
                 "Hello, ゲートWorld!"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(2)..t.br_indexes.0[3]],
+                &t.text[t.br_indexes.row_start(2)?..t.br_indexes.0[3]],
                 "イOlá, mundo!"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(3)..t.br_indexes.0[4]],
+                &t.text[t.br_indexes.row_start(3)?..t.br_indexes.0[4]],
                 "Waltuh Put the fork away Waltuh.ンズ・ゲートは素晴らしいです。"
             );
-            assert_eq!(&t.text[t.br_indexes.row_start(4)..], "こんにちは世界！");
+            assert_eq!(&t.text[t.br_indexes.row_start(4)?..], "こんにちは世界！");
+
+            Ok(())
         }
     }
 
@@ -806,7 +847,8 @@ mod tests {
                 GridIndex { row: 0, col: 3 },
                 GridIndex { row: 0, col: 5 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(
                 t.text,
@@ -826,7 +868,8 @@ mod tests {
                 GridIndex { row: 1, col: 3 },
                 GridIndex { row: 1, col: 5 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(
                 t.text,
@@ -845,7 +888,8 @@ mod tests {
                 GridIndex { row: 0, col: 4 },
                 GridIndex { row: 0, col: 13 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(t.text, "HellWappow! There he stood.\nBye World!\nhahaFunny");
             assert_eq!(t.br_indexes, [0, 27, 38]);
@@ -861,7 +905,8 @@ mod tests {
                 GridIndex { row: 0, col: 5 },
                 GridIndex { row: 1, col: 3 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(t.text, "HelloThis replaced with the content in the first line\n and second line World!\nhahaFunny");
             assert_eq!(t.br_indexes, [0, 53, 77]);
@@ -877,7 +922,8 @@ mod tests {
                 GridIndex { row: 0, col: 3 },
                 GridIndex { row: 3, col: 6 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(
                 t.text,
@@ -897,7 +943,8 @@ mod tests {
                 GridIndex { row: 2, col: 3 },
                 GridIndex { row: 3, col: 6 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(
                 t.text,
@@ -917,7 +964,8 @@ mod tests {
                 GridIndex { row: 2, col: 1 },
                 GridIndex { row: 2, col: 5 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(t.text, "Hello, World!\nBye World!\nhI am in the middle!\nNo one can stop me.unny\nInteresting!");
             assert_eq!(t.br_indexes, [0, 13, 24, 45, 69]);
@@ -933,7 +981,8 @@ mod tests {
                 GridIndex { row: 1, col: 3 },
                 GridIndex { row: 1, col: 6 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(
                 t.text,
@@ -952,7 +1001,8 @@ mod tests {
                 GridIndex { row: 0, col: 3 },
                 GridIndex { row: 0, col: 8 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(
                 t.text,
@@ -971,7 +1021,8 @@ mod tests {
                 GridIndex { row: 3, col: 3 },
                 GridIndex { row: 3, col: 8 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(
                 t.text,
@@ -990,7 +1041,8 @@ mod tests {
                 GridIndex { row: 0, col: 3 },
                 GridIndex { row: 3, col: 8 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(t.text, "HelLook ma, no line breaksing!");
             assert_eq!(t.br_indexes, [0]);
@@ -1006,7 +1058,8 @@ mod tests {
                 GridIndex { row: 0, col: 0 },
                 GridIndex { row: 6, col: 0 },
                 &mut (),
-            );
+            )
+            .unwrap();
 
             assert_eq!(t.text, "Hello, World!\nBye World!");
             assert_eq!(t.br_indexes, [0, 13]);

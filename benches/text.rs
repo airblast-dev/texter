@@ -33,7 +33,7 @@ fn text(c: &mut Criterion) {
             },
             |(mut t, chs)| {
                 for ch in chs {
-                    t.update(ch, &mut ())
+                    t.update(ch, &mut ()).unwrap();
                 }
             },
             BatchSize::SmallInput,
@@ -71,7 +71,7 @@ fn text(c: &mut Criterion) {
             },
             |(mut text, chs)| {
                 for ch in chs {
-                    text.update(ch, &mut ());
+                    text.update(ch, &mut ()).unwrap();
                 }
             },
             BatchSize::SmallInput,
@@ -108,7 +108,7 @@ fn text(c: &mut Criterion) {
             },
             |(mut text, chs)| {
                 for ch in chs {
-                    text.update(ch, &mut ())
+                    text.update(ch, &mut ()).unwrap();
                 }
             },
             BatchSize::SmallInput,

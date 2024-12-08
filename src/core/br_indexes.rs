@@ -1,3 +1,5 @@
+use crate::error::Error;
+
 use super::lines::FastEOL;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -39,10 +41,14 @@ impl BrIndexes {
 
     /// The index to the first byte in the row.
     #[inline(always)]
-    pub fn row_start(&self, row: usize) -> usize {
+    pub fn row_start(&self, row: usize) -> Result<usize, Error> {
         // we increment by one if it is not zero since the index points to a break line,
         // and the first row should start at zero.
-        self.0[row] + (row != 0) as usize
+        let row_start = self.0.get(row).ok_or(Error::OutOfBoundsRow {
+            max: self.row_count() - 1,
+            current: row,
+        })?;
+        Ok(row_start + (row != 0) as usize)
     }
 
     /// Inserts the provided indexes at the provided position.
@@ -112,9 +118,6 @@ impl BrIndexes {
     #[inline(always)]
     pub fn is_last_row(&self, row: usize) -> bool {
         let len = self.0.len();
-        if row >= len {
-            oob_row_query(row, len)
-        }
         len - 1 == row
     }
 
@@ -128,7 +131,7 @@ impl BrIndexes {
     }
 
     #[inline(always)]
-    pub fn last_row(&self) -> usize {
+    pub fn last_row(&self) -> Result<usize, Error> {
         // Cannot panic, Self::row_count should always return at least 1.
         self.row_start(self.row_count() - 1)
     }
@@ -141,16 +144,9 @@ fn no_row() -> ! {
     panic!("the row count should never be less than one")
 }
 
-#[cold]
-#[inline(never)]
-#[track_caller]
-fn oob_row_query(n: usize, len: usize) -> ! {
-    panic!("row query should never be out of bounds. row query {n} should always be less than row count {len}");
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::core::br_indexes::BrIndexes;
+    use crate::{core::br_indexes::BrIndexes, error::Error};
 
     const S: &str = "ads\nasdas\n\n\nasdad\n\nasdasd\nasd\na\n";
 
@@ -163,23 +159,23 @@ mod tests {
     #[test]
     fn row_start() {
         let br = BrIndexes::new(S);
-        assert_eq!(br.row_start(0), 0);
-        assert_eq!(br.row_start(1), 4);
-        assert_eq!(br.row_start(2), 10);
-        assert_eq!(br.row_start(3), 11);
-        assert_eq!(br.row_start(4), 12);
-        assert_eq!(br.row_start(5), 18);
-        assert_eq!(br.row_start(6), 19);
-        assert_eq!(br.row_start(7), 26);
-        assert_eq!(br.row_start(8), 30);
-        assert_eq!(br.row_start(9), 32);
-    }
-
-    #[test]
-    #[should_panic]
-    fn row_start_oob() {
-        let br = BrIndexes::new(S);
-        br.row_start(10);
+        assert_eq!(br.row_start(0), Ok(0));
+        assert_eq!(br.row_start(1), Ok(4));
+        assert_eq!(br.row_start(2), Ok(10));
+        assert_eq!(br.row_start(3), Ok(11));
+        assert_eq!(br.row_start(4), Ok(12));
+        assert_eq!(br.row_start(5), Ok(18));
+        assert_eq!(br.row_start(6), Ok(19));
+        assert_eq!(br.row_start(7), Ok(26));
+        assert_eq!(br.row_start(8), Ok(30));
+        assert_eq!(br.row_start(9), Ok(32));
+        assert_eq!(
+            br.row_start(10),
+            Err(Error::OutOfBoundsRow {
+                max: 9,
+                current: 10
+            })
+        );
     }
 
     #[test]
