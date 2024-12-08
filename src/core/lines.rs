@@ -96,7 +96,7 @@ impl<'a> TextLines<'a> {
             // panic if the content is out of sync
             // we do not do full checks as it makes things very slow
             // this only checks if the content is out of sync in an obvious way
-            assert!(lfs.is_sorted());
+            debug_assert!(lfs.is_sorted());
             assert!(*l < s.len() || *l == 0);
         }
         Self {
