@@ -16,7 +16,7 @@ use super::{
 
 use crate::{
     change::{correct_positions, Change, GridIndex},
-    error::{Error, Result},
+    error::Result,
     updateables::{ChangeContext, UpdateContext, Updateable},
 };
 
@@ -348,18 +348,19 @@ impl Text {
         Ok(())
     }
 
-    /// returns the nth row including the trailing line break if one if present
+    /// Returns the start of the nth row.
     #[inline]
     fn nth_row(&self, nth: usize) -> Result<usize> {
         self.br_indexes.row_start(nth)
     }
 
+    /// Get the nth row.
+    ///
+    /// The returned slice is trimmed for any EOL bytes.
+    /// Returns None if the nth row does not exist.
     #[inline]
-    pub fn get_row(&self, nth: usize) -> Result<&str> {
-        self.lines().nth(nth).ok_or(Error::OutOfBoundsRow {
-            max: self.br_indexes.row_count() - 1,
-            current: nth,
-        })
+    pub fn get_row(&self, nth: usize) -> Option<&str> {
+        self.lines().nth(nth)
     }
 
     /// Returns an [`Iterator`] over the lines present in the [`Text`].

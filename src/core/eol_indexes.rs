@@ -40,15 +40,13 @@ impl EolIndexes {
     }
 
     /// The index to the first byte in the row.
+    ///
+    /// Returns None if the nth row does not exist.
     #[inline(always)]
-    pub fn row_start(&self, row: usize) -> Result<usize, Error> {
+    pub fn row_start(&self, row: usize) -> Option<usize> {
         // we increment by one if it is not zero since the index points to a break line,
         // and the first row should start at zero.
-        let row_start = self.0.get(row).ok_or(Error::OutOfBoundsRow {
-            max: self.row_count() - 1,
-            current: row,
-        })?;
-        Ok(row_start + (row != 0) as usize)
+        self.0.get(row).map(|rs| rs + (row != 0) as usize)
     }
 
     /// Inserts the provided indexes at the provided position.
@@ -82,6 +80,8 @@ impl EolIndexes {
         self.0.drain(start + 1..=end);
     }
 
+    // Same as splicing the vec, but since we are dealing with integers we use a specialized
+    // implementation for performance.
     #[inline]
     pub(crate) fn replace_indexes<I: Iterator<Item = usize>>(
         &mut self,
@@ -89,6 +89,7 @@ impl EolIndexes {
         end: usize,
         mut replacement: I,
     ) -> std::ops::Range<usize> {
+        assert!(start <= end);
         let replacing_len = end - start;
         let s = &mut self.0[start..end + 1];
         let i = (1..replacing_len + 1)
