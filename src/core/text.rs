@@ -15,7 +15,7 @@ use super::{
 };
 
 use crate::{
-    change::{Change, GridIndex},
+    change::{correct_positions, Change, GridIndex},
     error::{Error, Result},
     updateables::{ChangeContext, UpdateContext, Updateable},
 };
@@ -146,6 +146,7 @@ impl Text {
         self.update_prep();
         start.normalize(self)?;
         end.normalize(self)?;
+        correct_positions(&mut start, &mut end);
         let row_start_index = self.nth_row(start.row)?;
         let row_end_index = self.nth_row(end.row)?;
         let start_byte = row_start_index + start.col;
@@ -213,6 +214,7 @@ impl Text {
         self.update_prep();
         start.normalize(self)?;
         end.normalize(self)?;
+        correct_positions(&mut start, &mut end);
         let row_start_index = self.nth_row(start.row)?;
         let row_end_index = self.nth_row(end.row)?;
         let start_byte = row_start_index + start.col;

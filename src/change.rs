@@ -204,3 +204,11 @@ impl GridIndex {
         Ok(())
     }
 }
+
+pub(crate) fn correct_positions(start: &mut GridIndex, end: &mut GridIndex) {
+    if start.row > end.row || (start.row == end.row && start.col > end.col) {
+        start.col = start.col.saturating_add(1);
+        end.col += 1;
+        std::mem::swap(start, end);
+    }
+}
