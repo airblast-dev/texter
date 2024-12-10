@@ -60,9 +60,9 @@ impl EolIndexes {
     ) -> std::ops::Range<usize> {
         // A slightly more efficient way to insert multiple values in a Vec.
         // Can be thought of as inserting using Vec::splice with optimal cases.
-        let old_len = self.0.len();
+        let old_len = self.row_count().get();
         self.0.extend(indexes);
-        let new_len = self.0.len();
+        let new_len = self.row_count().get();
         self.0[at..].rotate_right(new_len - old_len);
         at..at + (new_len - old_len)
     }
@@ -110,14 +110,14 @@ impl EolIndexes {
             end + 1
         };
 
-        let cur_len = self.0.len();
+        let cur_len = self.row_count().get();
 
         // add any remaining value to the end
         // these will be rotated to their correct position below
         // we do this to avoid shifting the values multiple times
         // with this we end up shifting only once
         self.0.extend(replacement);
-        let insert_count = self.0.len() - cur_len;
+        let insert_count = self.row_count().get() - cur_len;
         // no values were appended to the end, meaning we either have fully filled the replacing
         // range, or we have values we need to remove
         if insert_count == 0 {
@@ -128,7 +128,7 @@ impl EolIndexes {
             //
             // slightly faster than truncating as no checks or drops need to be performed.
             // instead all is dealt with when the vec is dropped.
-            let new_len = self.0.len() - (replacing_len - i);
+            let new_len = self.row_count().get() - (replacing_len - i);
             unsafe {
                 self.0.set_len(new_len);
             }
