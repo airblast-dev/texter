@@ -94,6 +94,8 @@ impl EolIndexes {
     {
         assert!(start <= end);
         assert!(end <= self.row_count().get());
+
+        // replace as many the existing values in the range as possible
         let replacing_len = end - start;
         let s = &mut self.0[start..end + 1];
         let i = (1..replacing_len + 1)
@@ -101,6 +103,7 @@ impl EolIndexes {
             .map(|(index, new)| s[index] = new)
             .count();
 
+        // calculate the slice start bound that will be rotated
         let rotate_start = if i < replacing_len {
             end - (replacing_len - i) + 1
         } else {
@@ -108,9 +111,17 @@ impl EolIndexes {
         };
 
         let cur_len = self.0.len();
+
+        // add any remaining value to the end
+        // these will be rotated to their correct position below
+        // we do this to avoid shifting the values multiple times
+        // with this we end up shifting only once
         self.0.extend(replacement);
         let insert_count = self.0.len() - cur_len;
+        // no values were appended to the end, meaning we either have fully filled the replacing
+        // range, or we have values we need to remove
         if insert_count == 0 {
+            // i is always <= replacing_len
             self.0[start + 1 + i..].rotate_left(replacing_len - i);
             // safety variants of set_len require that the range is initialized which is already
             // done.
