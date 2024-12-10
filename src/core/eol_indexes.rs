@@ -90,6 +90,7 @@ impl EolIndexes {
         mut replacement: I,
     ) -> std::ops::Range<usize> {
         assert!(start <= end);
+        assert!(end <= self.row_count().get());
         let replacing_len = end - start;
         let s = &mut self.0[start..end + 1];
         let i = (1..replacing_len + 1)
@@ -127,7 +128,7 @@ impl EolIndexes {
     /// Add an offset to all rows after the provided row number excluding itself.
     #[inline(always)]
     pub(crate) fn add_offsets(&mut self, row: usize, by: usize) {
-        if row >= self.0.len() {
+        if row >= self.row_count().get() {
             return;
         }
         self.0[row + 1..].iter_mut().for_each(|bi| *bi += by);
@@ -136,7 +137,7 @@ impl EolIndexes {
     /// Sub an offset to all rows after the provided row number excluding itself.
     #[inline(always)]
     pub(crate) fn sub_offsets(&mut self, row: usize, by: usize) {
-        if row >= self.0.len() {
+        if row >= self.row_count().get() {
             return;
         }
         self.0[row + 1..].iter_mut().for_each(|bi| *bi -= by);
