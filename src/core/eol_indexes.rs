@@ -145,8 +145,8 @@ impl EolIndexes {
     /// Returns true if the provided row index is for the last row.
     #[inline(always)]
     pub fn is_last_row(&self, row: usize) -> bool {
-        let len = self.0.len();
-        len - 1 == row
+        let len = self.row_count();
+        len.get() - 1 == row
     }
 
     #[inline(always)]
