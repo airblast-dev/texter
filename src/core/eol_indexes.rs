@@ -1,4 +1,4 @@
-use std::num::NonZeroUsize;
+use std::{iter::FusedIterator, num::NonZeroUsize};
 
 use super::lines::FastEOL;
 
@@ -83,12 +83,15 @@ impl EolIndexes {
     // Same as splicing the vec, but since we are dealing with integers we use a specialized
     // implementation for performance.
     #[inline]
-    pub(crate) fn replace_indexes<I: Iterator<Item = usize>>(
+    pub(crate) fn replace_indexes<I>(
         &mut self,
         start: usize,
         end: usize,
         mut replacement: I,
-    ) -> std::ops::Range<usize> {
+    ) -> std::ops::Range<usize>
+    where
+        I: Iterator<Item = usize> + FusedIterator,
+    {
         assert!(start <= end);
         assert!(end <= self.row_count().get());
         let replacing_len = end - start;
