@@ -177,11 +177,11 @@ mod ts {
                 start_position: Point { row: 0, column: 0 },
                 old_end_position: Point {
                     row: old_br.row_count().get() - 1,
-                    column: ctx.old_str.len() - old_br.last_row(),
+                    column: ctx.old_str.len() - old_br.last_row_start(),
                 },
                 new_end_position: Point {
                     row: new_br.row_count().get() - 1,
-                    column: text.len() - new_br.last_row(),
+                    column: text.len() - new_br.last_row_start(),
                 },
             },
         };

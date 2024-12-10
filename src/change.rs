@@ -171,7 +171,7 @@ impl GridIndex {
         let br_indexes = &mut text.br_indexes;
         let mut row_count = br_indexes.row_count();
         if self.row == row_count.get() {
-            br_indexes.insert_index(self.row, br_indexes.last_row());
+            br_indexes.insert_index(self.row, br_indexes.last_row_start());
             text.text.push('\n');
             row_count = row_count.saturating_add(1);
         }

@@ -160,7 +160,7 @@ impl EolIndexes {
     }
 
     #[inline(always)]
-    pub fn last_row(&self) -> usize {
+    pub fn last_row_start(&self) -> usize {
         self.row_start(self.row_count().get() - 1).unwrap()
     }
 }
