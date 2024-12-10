@@ -159,8 +159,8 @@ impl EolIndexes {
     }
 
     #[inline(always)]
-    pub fn last_row(&self) -> Result<usize, Error> {
-        self.row_start(self.row_count() - 1)
+    pub fn last_row(&self) -> usize {
+        self.row_start(self.row_count() - 1).unwrap()
     }
 }
 
