@@ -16,7 +16,7 @@ use super::{
 
 use crate::{
     change::{correct_positions, Change, GridIndex},
-    error::Result,
+    error::{Error, Result},
     updateables::{ChangeContext, UpdateContext, Updateable},
 };
 
@@ -147,8 +147,13 @@ impl Text {
         start.normalize(self)?;
         end.normalize(self)?;
         correct_positions(&mut start, &mut end);
-        let row_start_index = self.nth_row(start.row)?;
-        let row_end_index = self.nth_row(end.row)?;
+        let max_row = self.br_indexes.row_count();
+        let row_start_index = self
+            .nth_row(start.row)
+            .ok_or(Error::oob_row(max_row, start.row))?;
+        let row_end_index = self
+            .nth_row(end.row)
+            .ok_or(Error::oob_row(max_row, end.row))?;
         let start_byte = row_start_index + start.col;
         let end_byte = row_end_index + end.col;
         let byte_range = start_byte..end_byte;
@@ -178,7 +183,10 @@ impl Text {
     ) -> Result<()> {
         self.update_prep();
         at.normalize(self)?;
-        let row_end_index = self.nth_row(at.row)?;
+        let row_count = self.br_indexes.row_count();
+        let row_end_index = self
+            .nth_row(at.row)
+            .ok_or(Error::oob_row(row_count, at.row))?;
         let end_byte = row_end_index + at.col;
         let br_indexes = FastEOL::new(s).map(|i| i + end_byte);
         self.br_indexes.add_offsets(at.row, s.len());
@@ -215,8 +223,13 @@ impl Text {
         start.normalize(self)?;
         end.normalize(self)?;
         correct_positions(&mut start, &mut end);
-        let row_start_index = self.nth_row(start.row)?;
-        let row_end_index = self.nth_row(end.row)?;
+        let row_count = self.br_indexes.row_count();
+        let row_start_index = self
+            .nth_row(start.row)
+            .ok_or(Error::oob_row(row_count, start.row))?;
+        let row_end_index = self
+            .nth_row(end.row)
+            .ok_or(Error::oob_row(row_count, end.row))?;
         let start_byte = row_start_index + start.col;
         let end_byte = row_end_index + end.col;
         let byte_range = start_byte..end_byte;
@@ -350,7 +363,7 @@ impl Text {
 
     /// Returns the start of the nth row.
     #[inline]
-    fn nth_row(&self, nth: usize) -> Result<usize> {
+    fn nth_row(&self, nth: usize) -> Option<usize> {
         self.br_indexes.row_start(nth)
     }
 
@@ -380,7 +393,7 @@ impl Text {
 
 #[cfg(test)]
 mod tests {
-    use crate::{change::GridIndex, error::Error};
+    use crate::change::GridIndex;
 
     use super::Text;
 
@@ -390,15 +403,12 @@ mod tests {
     fn nth_row() {
         let t = Text::new("Apple\nOrange\nBanana\nCoconut\nFruity".into());
         assert_eq!(t.br_indexes, [0, 5, 12, 19, 27]);
-        assert_eq!(t.nth_row(0), Ok(0));
-        assert_eq!(t.nth_row(1), Ok(6));
-        assert_eq!(t.nth_row(2), Ok(13));
-        assert_eq!(t.nth_row(3), Ok(20));
-        assert_eq!(t.nth_row(4), Ok(28));
-        assert_eq!(
-            t.nth_row(5),
-            Err(Error::OutOfBoundsRow { max: 4, current: 5 })
-        );
+        assert_eq!(t.nth_row(0), Some(0));
+        assert_eq!(t.nth_row(1), Some(6));
+        assert_eq!(t.nth_row(2), Some(13));
+        assert_eq!(t.nth_row(3), Some(20));
+        assert_eq!(t.nth_row(4), Some(28));
+        assert_eq!(t.nth_row(5), None);
     }
 
     mod delete {
@@ -751,7 +761,7 @@ mod tests {
         }
 
         #[test]
-        fn long_text_single_byte() -> Result<(), Error> {
+        fn long_text_single_byte() {
             let mut t = Text::new(
                 "1234567\nABCD\nHELLO\nWORLD\nSOMELONGLINEFORTESTINGVARIOUSCASES\nAHAHHAHAH".into(),
             );
@@ -772,40 +782,38 @@ mod tests {
             assert_eq!(t.br_indexes, [0, 7, 12, 18, 24, 41, 57, 93]);
 
             assert_eq!(
-                &t.text[t.br_indexes.row_start(0)?..t.br_indexes.0[1]],
+                &t.text[t.br_indexes.row_start(0).unwrap()..t.br_indexes.0[1]],
                 "1234567"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(1)?..t.br_indexes.0[2]],
+                &t.text[t.br_indexes.row_start(1).unwrap()..t.br_indexes.0[2]],
                 "ABCD"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(2)?..t.br_indexes.0[3]],
+                &t.text[t.br_indexes.row_start(2).unwrap()..t.br_indexes.0[3]],
                 "HELLO"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(3)?..t.br_indexes.0[4]],
+                &t.text[t.br_indexes.row_start(3).unwrap()..t.br_indexes.0[4]],
                 "WORLD"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(4)?..t.br_indexes.0[5]],
+                &t.text[t.br_indexes.row_start(4).unwrap()..t.br_indexes.0[5]],
                 "SOMELApple Juice"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(5)?..t.br_indexes.0[6]],
+                &t.text[t.br_indexes.row_start(5).unwrap()..t.br_indexes.0[6]],
                 "BananaMilkshake"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(6)?..t.br_indexes.0[7]],
+                &t.text[t.br_indexes.row_start(6).unwrap()..t.br_indexes.0[7]],
                 "WobblyONGLINEFORTESTINGVARIOUSCASES"
             );
-            assert_eq!(&t.text[t.br_indexes.row_start(7)?..], "AHAHHAHAH");
-
-            Ok(())
+            assert_eq!(&t.text[t.br_indexes.row_start(7).unwrap()..], "AHAHHAHAH");
         }
 
         #[test]
-        fn long_text_multi_byte() -> Result<(), Error> {
+        fn long_text_multi_byte() {
             let mut t = Text::new(
                 "シュタ\nHello, ゲートWorld!\nインズ・ゲートは素晴らしいです。\nこんにちは世界！"
                     .to_string(),
@@ -828,24 +836,25 @@ mod tests {
             assert_eq!(t.br_indexes, [0, 9, 32, 48, 126]);
 
             assert_eq!(
-                &t.text[t.br_indexes.row_start(0)?..t.br_indexes.0[1]],
+                &t.text[t.br_indexes.row_start(0).unwrap()..t.br_indexes.0[1]],
                 "シュタ"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(1)?..t.br_indexes.0[2]],
+                &t.text[t.br_indexes.row_start(1).unwrap()..t.br_indexes.0[2]],
                 "Hello, ゲートWorld!"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(2)?..t.br_indexes.0[3]],
+                &t.text[t.br_indexes.row_start(2).unwrap()..t.br_indexes.0[3]],
                 "イOlá, mundo!"
             );
             assert_eq!(
-                &t.text[t.br_indexes.row_start(3)?..t.br_indexes.0[4]],
+                &t.text[t.br_indexes.row_start(3).unwrap()..t.br_indexes.0[4]],
                 "Waltuh Put the fork away Waltuh.ンズ・ゲートは素晴らしいです。"
             );
-            assert_eq!(&t.text[t.br_indexes.row_start(4)?..], "こんにちは世界！");
-
-            Ok(())
+            assert_eq!(
+                &t.text[t.br_indexes.row_start(4).unwrap()..],
+                "こんにちは世界！"
+            );
         }
     }
 

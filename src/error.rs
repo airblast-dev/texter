@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, num::NonZeroUsize};
 
 /// A type alias for the libraries result type. ([`Result<(), Error>`])
 pub type Result<T> = std::result::Result<T, Error>;
@@ -25,9 +25,19 @@ impl Display for Error {
                 write!(f, "Current max row index is {max}, {current} was provided.")
             }
             Self::InBetweenCharBoundries { encoding } => {
-                write!(f, "Provided column position is between char boundries for {encoding:?}.")
+                write!(
+                    f,
+                    "Provided column position is between char boundries for {encoding:?}."
+                )
             }
         }
+    }
+}
+
+impl Error {
+    #[inline]
+    pub(crate) fn oob_row(row_count: NonZeroUsize, current: usize) -> Self {
+        Self::OutOfBoundsRow { max: row_count.get() - 1, current }
     }
 }
 

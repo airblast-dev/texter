@@ -1,6 +1,10 @@
 use std::borrow::Cow;
 
-use crate::{core::text::Text, error::Result, utils::trim_eol_from_end};
+use crate::{
+    core::text::Text,
+    error::{Error, Result},
+    utils::trim_eol_from_end,
+};
 
 /// A [`Change`] to be performed on a [`Text`].
 ///
@@ -166,15 +170,19 @@ impl GridIndex {
     pub fn normalize(&mut self, text: &mut Text) -> Result<()> {
         let br_indexes = &mut text.br_indexes;
         let mut row_count = br_indexes.row_count();
-        if self.row == row_count {
-            br_indexes.insert_index(self.row, br_indexes.last_row()?);
+        if self.row == row_count.get() {
+            br_indexes.insert_index(self.row, br_indexes.last_row());
             text.text.push('\n');
-            row_count += 1;
+            row_count = row_count.saturating_add(1);
         }
 
-        let row_start = br_indexes.row_start(self.row)?;
-        let pure_line = if !br_indexes.is_last_row(self.row) && row_count > 1 {
-            let row_end = br_indexes.row_start(self.row + 1)?;
+        let row_start = br_indexes
+            .row_start(self.row)
+            .ok_or(Error::oob_row(row_count, self.row))?;
+        let pure_line = if !br_indexes.is_last_row(self.row) && row_count.get() > 1 {
+            let row_end = br_indexes
+                .row_start(self.row + 1)
+                .ok_or(Error::oob_row(row_count, self.row))?;
             let base_line = &text.text[row_start..row_end];
             trim_eol_from_end(base_line)
         } else {
@@ -190,9 +198,13 @@ impl GridIndex {
     pub fn denormalize(&mut self, text: &Text) -> Result<()> {
         let br_indexes = &text.br_indexes;
         let row_count = br_indexes.row_count();
-        let row_start = br_indexes.row_start(self.row)?;
-        let pure_line = if !br_indexes.is_last_row(self.row) && row_count > 1 {
-            let row_end = br_indexes.row_start(self.row + 1)?;
+        let row_start = br_indexes
+            .row_start(self.row)
+            .ok_or(Error::oob_row(row_count, self.row))?;
+        let pure_line = if !br_indexes.is_last_row(self.row) && row_count.get() > 1 {
+            let row_end = br_indexes
+                .row_start(self.row + 1)
+                .ok_or(Error::oob_row(row_count, self.row))?;
             let base_line = &text.text[row_start..row_end];
             trim_eol_from_end(base_line)
         } else {

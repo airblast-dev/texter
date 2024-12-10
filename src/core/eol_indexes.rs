@@ -1,4 +1,4 @@
-use crate::error::Error;
+use std::num::NonZeroUsize;
 
 use super::lines::FastEOL;
 
@@ -150,17 +150,18 @@ impl EolIndexes {
     }
 
     #[inline(always)]
-    pub fn row_count(&self) -> usize {
+    pub fn row_count(&self) -> NonZeroUsize {
         let len = self.0.len();
-        if len == 0 {
+        let Some(len) = NonZeroUsize::new(len) else {
             no_row();
-        }
+        };
+
         len
     }
 
     #[inline(always)]
     pub fn last_row(&self) -> usize {
-        self.row_start(self.row_count() - 1).unwrap()
+        self.row_start(self.row_count().get() - 1).unwrap()
     }
 }
 
@@ -173,7 +174,7 @@ fn no_row() -> ! {
 
 #[cfg(test)]
 mod tests {
-    use crate::{core::eol_indexes::EolIndexes, error::Error};
+    use crate::core::eol_indexes::EolIndexes;
 
     const S: &str = "ads\nasdas\n\n\nasdad\n\nasdasd\nasd\na\n";
 
@@ -186,23 +187,17 @@ mod tests {
     #[test]
     fn row_start() {
         let br = EolIndexes::new(S);
-        assert_eq!(br.row_start(0), Ok(0));
-        assert_eq!(br.row_start(1), Ok(4));
-        assert_eq!(br.row_start(2), Ok(10));
-        assert_eq!(br.row_start(3), Ok(11));
-        assert_eq!(br.row_start(4), Ok(12));
-        assert_eq!(br.row_start(5), Ok(18));
-        assert_eq!(br.row_start(6), Ok(19));
-        assert_eq!(br.row_start(7), Ok(26));
-        assert_eq!(br.row_start(8), Ok(30));
-        assert_eq!(br.row_start(9), Ok(32));
-        assert_eq!(
-            br.row_start(10),
-            Err(Error::OutOfBoundsRow {
-                max: 9,
-                current: 10
-            })
-        );
+        assert_eq!(br.row_start(0), Some(0));
+        assert_eq!(br.row_start(1), Some(4));
+        assert_eq!(br.row_start(2), Some(10));
+        assert_eq!(br.row_start(3), Some(11));
+        assert_eq!(br.row_start(4), Some(12));
+        assert_eq!(br.row_start(5), Some(18));
+        assert_eq!(br.row_start(6), Some(19));
+        assert_eq!(br.row_start(7), Some(26));
+        assert_eq!(br.row_start(8), Some(30));
+        assert_eq!(br.row_start(9), Some(32));
+        assert_eq!(br.row_start(10), None);
     }
 
     #[test]

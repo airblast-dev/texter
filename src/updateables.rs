@@ -72,7 +72,7 @@ mod ts {
     use tracing::info;
     use tree_sitter::{InputEdit, Point, Tree};
 
-    use crate::error::Result;
+    use crate::error::{Error, Result};
 
     use super::{ChangeContext, UpdateContext, Updateable};
 
@@ -88,8 +88,14 @@ mod ts {
         let new_br = ctx.breaklines;
         let ie = match ctx.change {
             ChangeContext::Delete { start, end } => {
-                let start_byte = old_br.row_start(start.row)? + start.col;
-                let end_byte = old_br.row_start(end.row)? + end.col;
+                let start_byte = old_br
+                    .row_start(start.row)
+                    .ok_or(Error::oob_row(ctx.breaklines.row_count(), start.row))?
+                    + start.col;
+                let end_byte = old_br
+                    .row_start(end.row)
+                    .ok_or(Error::oob_row(ctx.breaklines.row_count(), end.row))?
+                    + end.col;
 
                 InputEdit {
                     start_position: start.into(),
@@ -105,7 +111,10 @@ mod ts {
                 position,
                 text,
             } => {
-                let start_byte = old_br.row_start(position.row)? + position.col;
+                let start_byte = old_br
+                    .row_start(position.row)
+                    .ok_or(Error::oob_row(ctx.breaklines.row_count(), position.row))?
+                    + position.col;
                 let new_end_byte = start_byte + text.len();
                 InputEdit {
                     start_byte,
@@ -129,8 +138,15 @@ mod ts {
                 text,
                 inserted_br_indexes,
             } => {
-                let start_byte = old_br.row_start(start.row)? + start.col;
-                let old_end_byte = old_br.row_start(end.row)? + end.col;
+                let row_count = ctx.breaklines.row_count();
+                let start_byte = old_br
+                    .row_start(start.row)
+                    .ok_or(Error::oob_row(row_count, start.row))?
+                    + start.col;
+                let old_end_byte = old_br
+                    .row_start(end.row)
+                    .ok_or(Error::oob_row(row_count, end.row))?
+                    + end.col;
                 InputEdit {
                     start_byte,
                     start_position: start.into(),
@@ -160,12 +176,12 @@ mod ts {
                 new_end_byte: text.len(),
                 start_position: Point { row: 0, column: 0 },
                 old_end_position: Point {
-                    row: old_br.row_count() - 1,
-                    column: ctx.old_str.len() - old_br.last_row()?,
+                    row: old_br.row_count().get() - 1,
+                    column: ctx.old_str.len() - old_br.last_row(),
                 },
                 new_end_position: Point {
-                    row: new_br.row_count() - 1,
-                    column: text.len() - new_br.last_row()?,
+                    row: new_br.row_count().get() - 1,
+                    column: text.len() - new_br.last_row(),
                 },
             },
         };
@@ -441,7 +457,7 @@ mod tests {
                 .parse(html_text.text.as_str(), Some(&html_tree))
                 .unwrap();
             let mut prev = 0;
-            for br in (1..html_text.br_indexes.row_count())
+            for br in (1..html_text.br_indexes.row_count().get())
                 .map(|i| html_text.br_indexes.row_start(i).unwrap())
             {
                 for i in prev..br {
@@ -494,7 +510,7 @@ mod tests {
                 .parse(html_text.text.as_str(), Some(&html_tree))
                 .unwrap();
             let mut prev = 0;
-            for br in (1..html_text.br_indexes.row_count())
+            for br in (1..html_text.br_indexes.row_count().get())
                 .map(|i| html_text.br_indexes.row_start(i).unwrap())
             {
                 for i in prev..br {
