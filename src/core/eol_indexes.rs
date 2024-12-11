@@ -3,7 +3,7 @@ use std::{iter::FusedIterator, num::NonZeroUsize};
 use super::lines::FastEOL;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct EolIndexes(pub(crate) Vec<usize>);
+pub struct EolIndexes(pub Vec<usize>);
 
 impl Default for EolIndexes {
     fn default() -> Self {
