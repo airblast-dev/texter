@@ -91,6 +91,12 @@ pub struct TextLines<'a> {
 }
 
 impl<'a> TextLines<'a> {
+    /// Create a new [`TextLines`].
+    ///
+    /// # Panics
+    ///
+    /// If the last EOL byte position is more than the strings length or the last EOL byte is not
+    /// zero.
     pub(crate) fn new(s: &'a str, lfs: &'a [usize]) -> TextLines<'a> {
         if let Some(l) = lfs.last() {
             // panic if the content is out of sync

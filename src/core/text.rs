@@ -116,11 +116,11 @@ impl Text {
         }
     }
 
-    #[instrument(skip(change, updateable))]
     /// Perform an a change on the text.
     ///
     /// The positions in the provided [`Change`] will be transformed to the expected encoding
     /// depending on how the [`Text`] was constructed.
+    #[instrument(skip(change, updateable))]
     pub fn update<'a, U: Updateable, C: Into<Change<'a>>>(
         &mut self,
         change: C,
@@ -136,6 +136,16 @@ impl Text {
             Change::ReplaceFull(s) => self.replace_full(s, updateable),
         }
     }
+
+    /// Delete between the start and end [`GridIndex`] with the end being exclusive.
+    ///
+    /// Updates the current [`EolIndexes`] to align to the string.
+    /// The [`GridIndex`] columns value is clamped to the end of the string excluding
+    /// the EOL bytes.
+    ///
+    /// # Panics
+    ///
+    /// If the [`EolIndexes`] of [`Text`] has a length of zero.
     #[inline]
     pub fn delete<U: Updateable>(
         &mut self,
@@ -174,6 +184,15 @@ impl Text {
         Ok(())
     }
 
+    /// Insert the provided string at the provided [`GridIndex`].
+    ///
+    /// Updates the current [`EolIndexes`] to align to the string.
+    /// The [`GridIndex`] columns value is clamped to the end of the string excluding
+    /// the EOL bytes.
+    ///
+    /// # Panics
+    ///
+    /// If the [`EolIndexes`] of [`Text`] has a length of zero.
     #[inline]
     pub fn insert<U: Updateable>(
         &mut self,
@@ -211,6 +230,18 @@ impl Text {
         Ok(())
     }
 
+    /// Replace start..end with the provided string.
+    ///
+    /// Updates the current [`EolIndexes`] to align to the string.
+    /// The [`GridIndex`] columns value is clamped to the end of the string excluding
+    /// the EOL bytes.
+    ///
+    /// This is more optimized than calling [`String::replace_range`] and then updating the 
+    /// [`EolIndexes`] manually.
+    ///
+    /// # Panics
+    ///
+    /// If the [`EolIndexes`] of [`Text`] has a length of zero.
     #[inline]
     pub fn replace<U: Updateable>(
         &mut self,
@@ -362,6 +393,8 @@ impl Text {
     }
 
     /// Returns the start of the nth row.
+    ///
+    /// If the nth row does not exist, None is returned.
     #[inline]
     fn nth_row(&self, nth: usize) -> Option<usize> {
         self.br_indexes.row_start(nth)
@@ -377,6 +410,9 @@ impl Text {
     }
 
     /// Returns an [`Iterator`] over the lines present in the [`Text`].
+    ///
+    /// The [`Iterator`] implementation of [`TextLines`] is optimized so it is usually a good idea
+    /// to use the iterator to get string slices.
     ///
     /// # Panics
     ///

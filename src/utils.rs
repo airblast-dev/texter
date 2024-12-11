@@ -9,7 +9,7 @@ pub(crate) fn trim_eol_from_end(base_line: &str) -> &str {
         _ => 0,
     };
 
-    // SAFETY: Since the provided range is based on the length of the str - EOL bytes,
+    // Since the provided range is based on the length of the str - EOL bytes,
     // worst we can get is an empty str. We only matched on ascii character bytes,
     // and any byte of a multibyte UTF8 character cannot match with any ascii byte.
     let r = &base_line[..base_line.len() - eol_len];

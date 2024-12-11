@@ -51,9 +51,9 @@ impl EolIndexes {
 
     /// Inserts the provided indexes at the provided position.
     ///
-    /// Returns a slice of the inserted indexes.
+    /// Returns a range to get a slice of the inserted indexes.
     #[inline]
-    pub(crate) fn insert_indexes<I: Iterator<Item = usize>>(
+    pub fn insert_indexes<I: Iterator<Item = usize>>(
         &mut self,
         at: usize,
         indexes: I,
@@ -67,20 +67,23 @@ impl EolIndexes {
         at..at + (new_len - old_len)
     }
 
-    pub(crate) fn insert_index(&mut self, at: usize, index: usize) {
+    /// Insert the provided index at the position.
+    pub fn insert_index(&mut self, at: usize, index: usize) {
         self.0.insert(at, index);
     }
 
     /// Removes the indexes between start and end, not including start, but including end.
+    ///
+    /// Does nothing if start + 1 > end.
     #[inline]
-    pub(crate) fn remove_indexes(&mut self, start: usize, end: usize) {
+    pub fn remove_indexes(&mut self, start: usize, end: usize) {
         if start + 1 > end {
             return;
         }
         self.0.drain(start + 1..=end);
     }
 
-    /// Replace the indexes including start and including end.
+    /// Replace the indexes excluding start and including end.
     ///
     /// Internally is similar to [`Vec::splice`], but with ideal cases and some other optimizations
     /// since we are dealing with integers.
@@ -93,7 +96,7 @@ impl EolIndexes {
     ///
     /// Panics if start > end or end > row_count.
     #[inline]
-    pub(crate) fn replace_indexes<I>(
+    pub fn replace_indexes<I>(
         &mut self,
         start: usize,
         end: usize,
@@ -175,8 +178,7 @@ impl EolIndexes {
     ///
     /// # Panics
     ///
-    /// When the buffer contains less than 1 element. This is only possible when mutating the
-    /// buffer outside of the provided methods.
+    /// When the buffer contains less than 1 element.
     #[inline(always)]
     pub fn is_last_row(&self, row: usize) -> bool {
         let len = self.row_count();
@@ -198,6 +200,11 @@ impl EolIndexes {
         len
     }
 
+    /// Get the first byte index of the last row.
+    ///
+    /// # Panics
+    ///
+    /// When the buffer contains less than 1 element.
     #[inline(always)]
     pub fn last_row_start(&self) -> usize {
         self.row_start(self.row_count().get() - 1).unwrap()
