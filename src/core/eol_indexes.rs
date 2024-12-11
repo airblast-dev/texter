@@ -80,8 +80,18 @@ impl EolIndexes {
         self.0.drain(start + 1..=end);
     }
 
-    // Same as splicing the vec, but since we are dealing with integers we use a specialized
-    // implementation for performance.
+    /// Replace the indexes including start and including end.
+    ///
+    /// Internally is similar to [`Vec::splice`], but with ideal cases and some other optimizations
+    /// since we are dealing with integers.
+    ///
+    /// In case use in unsafe code, the uninitialized portion may contain arbitrary values, as the
+    /// uninitialized section is used as scratch memory. This ofcourse does not concern any safe
+    /// code.
+    ///
+    /// # Panics
+    ///
+    /// Panics if start > end or end > row_count.
     #[inline]
     pub(crate) fn replace_indexes<I>(
         &mut self,
@@ -140,6 +150,8 @@ impl EolIndexes {
     }
 
     /// Add an offset to all rows after the provided row number excluding itself.
+    ///
+    /// If the row > row_count the function returns early.
     #[inline(always)]
     pub(crate) fn add_offsets(&mut self, row: usize, by: usize) {
         if row >= self.row_count().get() {
@@ -149,6 +161,8 @@ impl EolIndexes {
     }
 
     /// Sub an offset to all rows after the provided row number excluding itself.
+    ///
+    /// If the row > row_count the function returns early.
     #[inline(always)]
     pub(crate) fn sub_offsets(&mut self, row: usize, by: usize) {
         if row >= self.row_count().get() {
@@ -158,12 +172,22 @@ impl EolIndexes {
     }
 
     /// Returns true if the provided row index is for the last row.
+    ///
+    /// # Panics
+    ///
+    /// When the buffer contains less than 1 element. This is only possible when mutating the
+    /// buffer outside of the provided methods.
     #[inline(always)]
     pub fn is_last_row(&self, row: usize) -> bool {
         let len = self.row_count();
         len.get() - 1 == row
     }
 
+    /// Get the number of rows present.
+    ///
+    /// # Panics
+    ///
+    /// When the buffer contains less than 1 element.
     #[inline(always)]
     pub fn row_count(&self) -> NonZeroUsize {
         let len = self.0.len();
