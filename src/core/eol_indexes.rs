@@ -107,10 +107,10 @@ impl EolIndexes {
 
         // replace as many the existing values in the range as possible
         let replacing_len = end - start;
-        let s = &mut self.0[start..end + 1];
-        let i = (1..replacing_len + 1)
+        let i = self.0[start + 1..end + 1]
+            .iter_mut()
             .zip(replacement.by_ref())
-            .map(|(index, new)| s[index] = new)
+            .map(|(old, new)| *old = new)
             .count();
 
         // calculate the slice start bound that will be rotated
