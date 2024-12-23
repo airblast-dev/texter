@@ -2,6 +2,12 @@
 name = "texter"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+keywords = ["lsp", "tree-sitter", "string", "editor", "ts"]
+description = "A library that simplifies writing an LSP with tree-sitter"
+readme = "README.md"
+repository = "https://github.com/airblast-dev/texter"
+authors = ["Tayfun Bocek <tayfunbocek@live.ca>"]
 
 [dependencies]
 memchr = "2.7.4"
