@@ -70,13 +70,20 @@ where
 #[cfg(feature = "tree-sitter")]
 mod ts {
     use tracing::info;
-    use tree_sitter::{InputEdit, Point, Tree};
+    use tree_sitter::{InputEdit, Node, Point, Tree};
 
     use crate::error::{Error, Result};
 
     use super::{ChangeContext, UpdateContext, Updateable};
 
     impl Updateable for Tree {
+        fn update(&mut self, ctx: UpdateContext) -> Result<()> {
+            self.edit(&edit_from_ctx(ctx)?);
+            Ok(())
+        }
+    }
+
+    impl Updateable for Node<'_> {
         fn update(&mut self, ctx: UpdateContext) -> Result<()> {
             self.edit(&edit_from_ctx(ctx)?);
             Ok(())
