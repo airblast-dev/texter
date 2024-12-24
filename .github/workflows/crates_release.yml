@@ -3,10 +3,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  tests:
+  release:
     runs-on: ubuntu-latest    
     environment: cratesio
-    release:
+    steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Dry Run
