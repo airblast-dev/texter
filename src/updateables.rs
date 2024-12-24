@@ -178,7 +178,6 @@ mod ts {
                     },
                 }
             }
-            // TODO: probably broken
             ChangeContext::ReplaceFull { text } => InputEdit {
                 start_byte: 0,
                 old_end_byte: ctx.old_str.len(),
