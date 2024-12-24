@@ -10,6 +10,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Dry Run
-        run: cargo publish --dry-run ${{secrets.CRATES_IO_KEY}}
+        run: cargo publish --dry-run
       - name: Publish Release
         run: cargo publish --token ${{secrets.CRATES_IO_KEY}}
