@@ -31,13 +31,13 @@ pub struct Text {
     ///
     /// In case of multibyte EOL patterns (such as `\r\n`) the values point to the last byte.
     ///
-    /// If modifying a [`Text`], the changes should also be reflected in [`BrIndexes`].
+    /// If modifying a [`Text`], the changes should also be reflected in [`EolIndexes`].
     /// This is already done when interacting with the implemented methods, but if the string is
     /// manually modified you should reflect to changes here as well.
     pub br_indexes: EolIndexes,
     /// The EOL positions of the text, from the previous update.
     ///
-    /// The same rules and restrictions that apply to the current [`BrIndexes`] also apply
+    /// The same rules and restrictions that apply to the current [`EolIndexes`] also apply
     /// here. With one exception, that is until the first update is provided the value will not
     /// store any information. Calling any of the values methods before an update is processed
     /// will very likely result in a panic.

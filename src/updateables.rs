@@ -2,6 +2,7 @@ use tracing::instrument;
 
 use crate::{change::GridIndex, core::eol_indexes::EolIndexes, error::Result};
 
+/// Information related to a specific change performed on a [`Text`][`crate::core::text::Text`].
 #[derive(Clone, Debug)]
 pub enum ChangeContext<'a> {
     Insert {
@@ -24,10 +25,10 @@ pub enum ChangeContext<'a> {
     },
 }
 
+/// The context provided to an [`Updateable`].
 #[derive(Clone, Debug)]
 pub struct UpdateContext<'a> {
-    /// A change that is being used to update the [`Text`].
-    /// - [`Text`]: crate::core::text::Text
+    /// A change that is being used to update the [`Text`][`crate::core::text::Text`].
     pub change: ChangeContext<'a>,
     /// The new breakline positions.
     pub breaklines: &'a EolIndexes,
@@ -67,6 +68,7 @@ where
     }
 }
 
+#[cfg_attr(docsrs, doc(cfg(feature = "tree-sitter")))]
 #[cfg(feature = "tree-sitter")]
 mod ts {
     use tracing::info;

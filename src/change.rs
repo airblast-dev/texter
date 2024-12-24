@@ -1,3 +1,6 @@
+//! A module containing the basic items to perform a change.
+//! 
+//! See [`crate::updateables`] for traits and structs related to keeping external states in sync.
 use std::borrow::Cow;
 
 use crate::{
@@ -42,6 +45,7 @@ pub struct GridIndex {
     pub col: usize,
 }
 
+#[cfg_attr(docsrs, doc(cfg(feature = "tree-sitter")))]
 #[cfg(feature = "tree-sitter")]
 mod ts {
     use std::cmp::Ordering;
@@ -82,6 +86,7 @@ mod ts {
     }
 }
 
+#[cfg_attr(docsrs, doc(cfg(feature = "lsp-types")))]
 #[cfg(feature = "lsp-types")]
 mod lspt {
     use lsp_types::{Position, TextDocumentContentChangeEvent};

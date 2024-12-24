@@ -78,11 +78,9 @@ impl Iterator for FastEOL<'_> {
 
 impl FusedIterator for FastEOL<'_> {}
 
-/// An efficient iterator that provides each line found in a [`Text`].
+/// An efficient iterator that provides each line found in a [`Text`][`crate::core::text::Text`].
 ///
-/// See [`Text::lines`] for more information.
-/// - [`Text`]: super::text::Text
-/// - [`Text::lines`]: super::text::Text::lines
+/// See [`Text::lines`][`crate::core::text::Text::lines`] for more information.
 #[derive(Clone, Debug)]
 pub struct TextLines<'a> {
     eol_indexes: &'a [usize],
