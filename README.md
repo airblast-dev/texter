@@ -1,4 +1,5 @@
 ![crates.io](https://img.shields.io/crates/v/texter)
+![docs.rs](https://img.shields.io/docsrs/texter/latest)
 [![tests](https://github.com/airblast-dev/texter/actions/workflows/rust.yml/badge.svg)](https://github.com/airblast-dev/texter/actions/workflows/rust.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
