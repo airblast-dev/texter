@@ -2,7 +2,7 @@
 [![tests](https://github.com/airblast-dev/texter/actions/workflows/rust.yml/badge.svg)](https://github.com/airblast-dev/texter/actions/workflows/rust.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Texter is a crate that aims simplify creating an LSP that uses `tree-sitter` and wants to benefit from incremental updates.
+Texter is a crate that aims to simplify creating an LSP that uses `tree-sitter` and wants to benefit from incremental updates.
 
 ## Examples
 A list of projects that use `texter`.
@@ -48,7 +48,7 @@ for an LSP server with minimal boilerplate to the code.
 
 ### Why create a library for this?
 While attempting to implement an LSP using `tree-sitter`, I had some trouble setting up 
-increlemental updates in a practical way. Out of curiosity I decided to check out other 
+incremental updates in a practical way. Out of curiosity I decided to check out other 
 LSP servers implemented in Rust.
 
 I noticed two common patterns in their implementation. They either don't bother with 
