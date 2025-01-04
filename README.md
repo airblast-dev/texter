@@ -1,4 +1,3 @@
-# Texter
 Texter is a crate that aims simplify creating an LSP that uses `tree-sitter` and wants to benefit from incremental updates.
 
 ## Examples
