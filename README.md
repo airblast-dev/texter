@@ -11,8 +11,8 @@ A list of projects that use `texter`.
 ### LSP Server for Trunk (trunkls)
 An LSP server that provides completions and hover information to editors for `trunk`'s custom HTML attributes. 
 The sections where `texter` is used are fairly simple to follow. If you intend to take a look on how `texter` 
-can be used in an LSP, this is likely a good starting point as it demonstrates how easy to is to integrate an 
-LSP server.
+can be used in an LSP, this is likely a good starting point as it demonstrates how easy it is to integrate with 
+an LSP server.
 
 ![image](https://github.com/user-attachments/assets/854b365d-3293-447a-9811-5ec5c8b9c510)
 
