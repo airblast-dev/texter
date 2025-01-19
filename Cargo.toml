@@ -25,7 +25,7 @@ rstest = "0.23.0"
 criterion = { version = "0.5.1", features = ["html_reports"] }
 
 [features]
-default = []
+default = ["tree-sitter", "lsp-types"]
 tree-sitter = ["dep:tree-sitter"]
 lsp-types = ["dep:lsp-types"]
 
