@@ -1,5 +1,5 @@
 //! A module containing the basic items to perform a change.
-//! 
+//!
 //! See [`crate::updateables`] for traits and structs related to keeping external states in sync.
 use std::borrow::Cow;
 

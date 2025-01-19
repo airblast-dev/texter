@@ -236,7 +236,7 @@ impl Text {
     /// The [`GridIndex`] columns value is clamped to the end of the string excluding
     /// the EOL bytes.
     ///
-    /// This is more optimized than calling [`String::replace_range`] and then updating the 
+    /// This is more optimized than calling [`String::replace_range`] and then updating the
     /// [`EolIndexes`] manually.
     ///
     /// # Panics

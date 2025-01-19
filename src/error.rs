@@ -37,7 +37,10 @@ impl Display for Error {
 impl Error {
     #[inline]
     pub(crate) fn oob_row(row_count: NonZeroUsize, current: usize) -> Self {
-        Self::OutOfBoundsRow { max: row_count.get() - 1, current }
+        Self::OutOfBoundsRow {
+            max: row_count.get() - 1,
+            current,
+        }
     }
 }
 
