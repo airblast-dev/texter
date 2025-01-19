@@ -58,9 +58,9 @@ impl<T: Updateable> Updateable for [T] {
     }
 }
 
-impl<'a, T> Updateable for T
+impl<T> Updateable for T
 where
-    T: 'a + FnMut(UpdateContext) -> Result<()>,
+    T: FnMut(UpdateContext) -> Result<()>,
 {
     #[instrument(skip(self))]
     fn update(&mut self, ctx: UpdateContext) -> Result<()> {
