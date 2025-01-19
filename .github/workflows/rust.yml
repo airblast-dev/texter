@@ -5,10 +5,12 @@ on:
     types: [opened, edited]
     paths:
       - '**.rs'
+      - '**.toml'
   push:
     types: []
     paths:
       - '**.rs'
+      - '**.toml'
 
 jobs:
   tests:
