@@ -21,7 +21,7 @@ tracing = "0.1.40"
 
 [dev-dependencies]
 tree-sitter-html = "0.23.2"
-rstest = "0.23.0"
+rstest = "0.24.0"
 criterion = { version = "0.5.1", features = ["html_reports"] }
 
 [features]
