@@ -65,6 +65,7 @@ pub mod change;
 pub mod core;
 pub mod error;
 pub mod updateables;
+pub mod querier;
 
 #[cfg_attr(docsrs, doc(cfg(feature = "lsp-types")))]
 #[cfg(feature = "lsp-types")]

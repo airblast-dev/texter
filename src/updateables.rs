@@ -1,5 +1,3 @@
-use tracing::instrument;
-
 use crate::{change::GridIndex, core::eol_indexes::EolIndexes, error::Result};
 
 /// Information related to a specific change performed on a [`Text`][`crate::core::text::Text`].
@@ -27,43 +25,62 @@ pub enum ChangeContext<'a> {
 
 /// The context provided to an [`Updateable`].
 #[derive(Clone, Debug)]
-pub struct UpdateContext<'a> {
+pub struct UpdateContext<'a, Q: 'a> {
     /// A change that is being used to update the [`Text`][`crate::core::text::Text`].
     pub change: ChangeContext<'a>,
     /// The new breakline positions.
     pub breaklines: &'a EolIndexes,
     /// The old breakline positions.
     pub old_breaklines: &'a EolIndexes,
-    /// The old string.
-    pub old_str: &'a str,
+    /// A queryable that allows querying information that the fields above cannot provide.
+    ///
+    /// This is useful if you have an [`Updateable`] that needs to say count the whitespaces. While this is
+    /// fairly simple to do with a string slice, not all buffer types are contigious in memory
+    /// meaning there can be an overhead whilst converting our buffer to a string slice.
+    ///
+    /// [`Updateable`]'s may require more complex information during a function call. This allows
+    /// [`Updateable`] implementers and callers to only support a specific type or add a set of
+    /// bounds required.
+    ///
+    /// To avoid this a queryable can be provided tailored to your own constraints and needs. The
+    /// type here is decided by the updating buffer.
+    ///
+    /// See [`Text`][`crate::core::text::Text`] as an example for implementations
+    /// in a buffer.
+    ///
+    /// See [`Tree`][`tree_sitter::Tree`]'s [`Updateable`] implementation for an example that requires a
+    /// [`Queryable`][`crate::querier::Queryable`]. Implementors are not required to use 
+    /// [`Queryable`][`crate::querier::Queryable`] as a trait bound but it is recommended to use it 
+    /// instead of supporting a specific type where possible.
+    pub queryable: Q,
 }
 
-pub trait Updateable {
-    fn update(&mut self, ctx: UpdateContext) -> Result<()>;
+/// An updateable used in text syncronization
+pub trait Updateable<Q> {
+    fn update(&mut self, ctx: &UpdateContext<Q>) -> Result<()>;
 }
 
-impl Updateable for () {
-    fn update(&mut self, _: UpdateContext) -> Result<()> {
+impl<Q> Updateable<Q> for () {
+    fn update(&mut self, _: &UpdateContext<Q>) -> Result<()> {
         Ok(())
     }
 }
 
-impl<T: Updateable> Updateable for [T] {
-    fn update(&mut self, ctx: UpdateContext) -> Result<()> {
+impl<Q, T: Updateable<Q>> Updateable<Q> for [T] {
+    fn update(&mut self, ctx: &UpdateContext<Q>) -> Result<()> {
         for u in self.iter_mut() {
-            u.update(ctx.clone())?;
+            u.update(ctx)?;
         }
 
         Ok(())
     }
 }
 
-impl<T> Updateable for T
+impl<Q, T> Updateable<Q> for T
 where
-    T: FnMut(UpdateContext) -> Result<()>,
+    T: FnMut(&UpdateContext<Q>) -> Result<()>,
 {
-    #[instrument(skip(self))]
-    fn update(&mut self, ctx: UpdateContext) -> Result<()> {
+    fn update(&mut self, ctx: &UpdateContext<Q>) -> Result<()> {
         self(ctx)
     }
 }
@@ -74,25 +91,28 @@ mod ts {
     use tracing::info;
     use tree_sitter::{InputEdit, Node, Point, Tree};
 
-    use crate::error::{Error, Result};
+    use crate::{
+        error::{Error, Result},
+        querier::Queryable,
+    };
 
     use super::{ChangeContext, UpdateContext, Updateable};
 
-    impl Updateable for Tree {
-        fn update(&mut self, ctx: UpdateContext) -> Result<()> {
+    impl<Q: Queryable> Updateable<Q> for Tree {
+        fn update(&mut self, ctx: &UpdateContext<Q>) -> Result<()> {
             self.edit(&edit_from_ctx(ctx)?);
             Ok(())
         }
     }
 
-    impl Updateable for Node<'_> {
-        fn update(&mut self, ctx: UpdateContext) -> Result<()> {
+    impl<Q: Queryable> Updateable<Q> for Node<'_> {
+        fn update(&mut self, ctx: &UpdateContext<Q>) -> Result<()> {
             self.edit(&edit_from_ctx(ctx)?);
             Ok(())
         }
     }
 
-    pub(super) fn edit_from_ctx(ctx: UpdateContext) -> Result<InputEdit> {
+    pub(super) fn edit_from_ctx<Q: Queryable>(ctx: &UpdateContext<Q>) -> Result<InputEdit> {
         let old_br = ctx.old_breaklines;
         let new_br = ctx.breaklines;
         let ie = match ctx.change {
@@ -180,12 +200,12 @@ mod ts {
             }
             ChangeContext::ReplaceFull { text } => InputEdit {
                 start_byte: 0,
-                old_end_byte: ctx.old_str.len(),
+                old_end_byte: ctx.queryable.len(),
                 new_end_byte: text.len(),
                 start_position: Point { row: 0, column: 0 },
                 old_end_position: Point {
                     row: old_br.row_count().get() - 1,
-                    column: ctx.old_str.len() - old_br.last_row_start(),
+                    column: ctx.queryable.len() - old_br.last_row_start(),
                 },
                 new_end_position: Point {
                     row: new_br.row_count().get() - 1,
@@ -213,10 +233,10 @@ mod tests {
         #[test]
         fn edit_ctx_delete_across_lines() {
             // old_str: "HelJuice";
-            let edit = edit_from_ctx(UpdateContext {
+            let edit = edit_from_ctx(&UpdateContext {
                 breaklines: &EolIndexes(vec![0]),
                 old_breaklines: &EolIndexes(vec![0, 12, 16, 20]),
-                old_str: "Hello World!\n123\nasd\nAppleJuice",
+                queryable: "Hello World!\n123\nasd\nAppleJuice",
                 change: ChangeContext::Delete {
                     start: GridIndex { row: 0, col: 3 },
                     end: GridIndex { row: 3, col: 5 },
@@ -238,10 +258,10 @@ mod tests {
         #[test]
         fn edit_ctx_delete_in_line_first_row() {
             // let old = "Hello World!\nd\nAppleJuice";
-            let edit = edit_from_ctx(UpdateContext {
+            let edit = edit_from_ctx(&UpdateContext {
                 breaklines: &EolIndexes(vec![0, 8, 12, 20]),
                 old_breaklines: &EolIndexes(vec![0, 12, 16, 20]),
-                old_str: "Hello World!\n123\nasd\nAppleJuice",
+                queryable: "Hello World!\n123\nasd\nAppleJuice",
                 change: ChangeContext::Delete {
                     start: GridIndex { row: 0, col: 3 },
                     end: GridIndex { row: 0, col: 7 },
@@ -263,10 +283,10 @@ mod tests {
         #[test]
         fn edit_ctx_delete_in_line_last_row() {
             // let old = "Hello World!\nd\nAppleJuice";
-            let edit = edit_from_ctx(UpdateContext {
+            let edit = edit_from_ctx(&UpdateContext {
                 breaklines: &EolIndexes(vec![0, 12, 16, 20]),
                 old_breaklines: &EolIndexes(vec![0, 12, 16, 20]),
-                old_str: "Hello World!\n123\nasd\nAppleJuice",
+                queryable: "Hello World!\n123\nasd\nAppleJuice",
                 change: ChangeContext::Delete {
                     start: GridIndex { row: 3, col: 3 },
                     end: GridIndex { row: 3, col: 7 },
@@ -287,10 +307,10 @@ mod tests {
 
         #[test]
         fn edit_ctx_insert() {
-            let edit = edit_from_ctx(UpdateContext {
+            let edit = edit_from_ctx(&UpdateContext {
                 breaklines: &EolIndexes(vec![0, 12, 16, 20]),
                 old_breaklines: &EolIndexes(vec![0, 12, 14]),
-                old_str: "Hello World!\nd\nAppleJuice",
+                queryable: "Hello World!\nd\nAppleJuice",
                 change: ChangeContext::Insert {
                     inserted_br_indexes: &[16],
                     position: GridIndex { row: 1, col: 0 },
@@ -313,10 +333,10 @@ mod tests {
         #[test]
         fn edit_ctx_replace_shrink() {
             // old = "HelloWelcomedhasgdjh\nAppleJuice";
-            let edit = edit_from_ctx(UpdateContext {
+            let edit = edit_from_ctx(&UpdateContext {
                 breaklines: &EolIndexes(vec![0, 20]),
                 old_breaklines: &EolIndexes(vec![0, 12, 31]),
-                old_str: "Hello World!\ndgsadhasgjdhasgdjh\nAppleJuice",
+                queryable: "Hello World!\ndgsadhasgjdhasgdjh\nAppleJuice",
                 change: ChangeContext::Replace {
                     start: GridIndex { row: 0, col: 5 },
                     end: GridIndex { row: 1, col: 10 },
@@ -340,10 +360,10 @@ mod tests {
         #[test]
         fn edit_ctx_replace_grow() {
             //let result = "HelloWelcome\narld!\ndgsadhasgjdhasgdjh\nAppleJuice";
-            let edit = edit_from_ctx(UpdateContext {
+            let edit = edit_from_ctx(&UpdateContext {
                 breaklines: &EolIndexes(vec![0, 12, 18, 39]),
                 old_breaklines: &EolIndexes(vec![0, 12, 21]),
-                old_str: "Hello World!\ndgsadhasgjdhasgdjh\nAppleJuice",
+                queryable: "Hello World!\ndgsadhasgjdhasgdjh\nAppleJuice",
                 change: ChangeContext::Replace {
                     start: GridIndex { row: 0, col: 5 },
                     end: GridIndex { row: 0, col: 8 },
@@ -367,10 +387,10 @@ mod tests {
         #[test]
         fn edit_ctx_replace_full() {
             //let result = "HelloWelcome\narld!\ndgsadhasgjdhasgdjh\nAppleJuice";
-            let edit = edit_from_ctx(UpdateContext {
+            let edit = edit_from_ctx(&UpdateContext {
                 breaklines: &EolIndexes(vec![0, 10, 19, 20, 21, 39]),
                 old_breaklines: &EolIndexes(vec![0, 12, 31]),
-                old_str: "Hello World!\ndgsadhasgjdhasgdjh\nAppleJuice",
+                queryable: "Hello World!\ndgsadhasgjdhasgdjh\nAppleJuice",
                 change: ChangeContext::ReplaceFull {
                     text: "sdghfkjhsd\nasdasdas\n\n\nasdasdasdasdasdas\nasdasd",
                 },

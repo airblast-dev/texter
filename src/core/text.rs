@@ -79,6 +79,10 @@ impl PartialEq for Text {
     }
 }
 
+/// An [`Updateable`] that guarantees a [`str`] slice as its queryable. 
+pub trait StrUpdateable: for<'a> Updateable<&'a str> {}
+impl<T> StrUpdateable for T where T: for<'a> Updateable<&'a str> {}
+
 impl Text {
     /// Creates a new [`Text`] that expects UTF-8 encoded positions.
     ///
@@ -116,12 +120,46 @@ impl Text {
         }
     }
 
+    /// Returns the start of the nth row.
+    ///
+    /// If the nth row does not exist, None is returned.
+    #[inline]
+    fn nth_row(&self, nth: usize) -> Option<usize> {
+        self.br_indexes.row_start(nth)
+    }
+
+    /// Get the nth row.
+    ///
+    /// The returned slice is trimmed for any EOL bytes.
+    /// Returns None if the nth row does not exist.
+    #[inline]
+    pub fn get_row(&self, nth: usize) -> Option<&str> {
+        self.lines().nth(nth)
+    }
+
+    /// Returns an [`Iterator`] over the lines present in the [`Text`].
+    ///
+    /// The [`Iterator`] implementation of [`TextLines`] is optimized so it is usually a good idea
+    /// to use the iterator to get string slices.
+    ///
+    /// # Panics
+    ///
+    /// If any of the fields of [`Text`] is out of sync, the iterator may panic or return
+    /// incorrect results.
+    pub fn lines(&self) -> TextLines {
+        TextLines::new(self.text.as_str(), &self.br_indexes.0)
+    }
+
+    fn update_prep(&mut self) {
+        self.old_br_indexes.clone_from(&self.br_indexes);
+    }
+
     /// Perform an a change on the text.
     ///
     /// The positions in the provided [`Change`] will be transformed to the expected encoding
     /// depending on how the [`Text`] was constructed.
     #[instrument(skip(change, updateable))]
-    pub fn update<'a, U: Updateable, C: Into<Change<'a>>>(
+    pub fn update<'a, U: StrUpdateable, C: Into<Change<'a>>>(
         &mut self,
         change: C,
         updateable: &mut U,
@@ -147,7 +185,7 @@ impl Text {
     ///
     /// If the [`EolIndexes`] of [`Text`] has a length of zero.
     #[inline]
-    pub fn delete<U: Updateable>(
+    pub fn delete<U: StrUpdateable>(
         &mut self,
         mut start: GridIndex,
         mut end: GridIndex,
@@ -172,11 +210,11 @@ impl Text {
         self.br_indexes.remove_indexes(start.row, end.row);
         self.br_indexes.sub_offsets(start.row, br_offset);
 
-        updateable.update(UpdateContext {
+        updateable.update(&UpdateContext {
             change: ChangeContext::Delete { start, end },
             breaklines: &self.br_indexes,
             old_breaklines: &self.old_br_indexes,
-            old_str: self.text.as_str(),
+            queryable: self.text.as_str(),
         })?;
 
         self.text.drain(byte_range);
@@ -194,7 +232,7 @@ impl Text {
     ///
     /// If the [`EolIndexes`] of [`Text`] has a length of zero.
     #[inline]
-    pub fn insert<U: Updateable>(
+    pub fn insert<U: StrUpdateable>(
         &mut self,
         s: &str,
         mut at: GridIndex,
@@ -214,7 +252,7 @@ impl Text {
             &self.br_indexes.0[r]
         };
 
-        updateable.update(UpdateContext {
+        updateable.update(&UpdateContext {
             change: ChangeContext::Insert {
                 inserted_br_indexes,
                 position: at,
@@ -222,7 +260,7 @@ impl Text {
             },
             breaklines: &self.br_indexes,
             old_breaklines: &self.old_br_indexes,
-            old_str: self.text.as_str(),
+            queryable: self.text.as_str(),
         })?;
 
         self.text.insert_str(end_byte, s);
@@ -243,7 +281,7 @@ impl Text {
     ///
     /// If the [`EolIndexes`] of [`Text`] has a length of zero.
     #[inline]
-    pub fn replace<U: Updateable>(
+    pub fn replace<U: StrUpdateable>(
         &mut self,
         s: &str,
         mut start: GridIndex,
@@ -282,7 +320,7 @@ impl Text {
             &self.br_indexes.0[r]
         };
 
-        updateable.update(UpdateContext {
+        updateable.update(&UpdateContext {
             change: ChangeContext::Replace {
                 start,
                 end,
@@ -291,7 +329,7 @@ impl Text {
             },
             breaklines: &self.br_indexes,
             old_breaklines: &self.old_br_indexes,
-            old_str: self.text.as_str(),
+            queryable: self.text.as_str(),
         })?;
 
         // String::replace_range contains quite a bit of checks that we do not need.
@@ -367,19 +405,18 @@ impl Text {
 
         Ok(())
     }
-
     #[inline]
-    pub fn replace_full<U: Updateable>(
+    pub fn replace_full<U: StrUpdateable>(
         &mut self,
         s: Cow<'_, str>,
         updateable: &mut U,
     ) -> Result<()> {
         self.br_indexes = EolIndexes::new(&s);
-        updateable.update(UpdateContext {
+        updateable.update(&UpdateContext {
             change: ChangeContext::ReplaceFull { text: s.as_ref() },
             breaklines: &self.br_indexes,
             old_breaklines: &self.old_br_indexes,
-            old_str: self.text.as_str(),
+            queryable: self.text.as_str(),
         })?;
         match s {
             Cow::Borrowed(s) => {
@@ -390,40 +427,6 @@ impl Text {
         };
 
         Ok(())
-    }
-
-    /// Returns the start of the nth row.
-    ///
-    /// If the nth row does not exist, None is returned.
-    #[inline]
-    fn nth_row(&self, nth: usize) -> Option<usize> {
-        self.br_indexes.row_start(nth)
-    }
-
-    /// Get the nth row.
-    ///
-    /// The returned slice is trimmed for any EOL bytes.
-    /// Returns None if the nth row does not exist.
-    #[inline]
-    pub fn get_row(&self, nth: usize) -> Option<&str> {
-        self.lines().nth(nth)
-    }
-
-    /// Returns an [`Iterator`] over the lines present in the [`Text`].
-    ///
-    /// The [`Iterator`] implementation of [`TextLines`] is optimized so it is usually a good idea
-    /// to use the iterator to get string slices.
-    ///
-    /// # Panics
-    ///
-    /// If any of the fields of [`Text`] is out of sync, the iterator may panic or return
-    /// incorrect results.
-    pub fn lines(&self) -> TextLines {
-        TextLines::new(self.text.as_str(), &self.br_indexes.0)
-    }
-
-    fn update_prep(&mut self) {
-        self.old_br_indexes.clone_from(&self.br_indexes);
     }
 }
 
