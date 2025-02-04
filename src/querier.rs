@@ -27,9 +27,11 @@ impl Queryable for &str {
     fn len(&self) -> usize {
         str::len(self)
     }
+
     fn is_empty(&self) -> bool {
         str::is_empty(self)
     }
+
     fn get<RB: RangeBounds<usize>>(&self, r: RB) -> Option<impl QueryIter> {
         str::get(self, (r.start_bound().cloned(), r.end_bound().cloned()))
             .map(std::iter::once)
@@ -47,9 +49,11 @@ impl Queryable for &Text {
     fn len(&self) -> usize {
         self.text.len()
     }
+
     fn is_empty(&self) -> bool {
         self.text.is_empty()
     }
+
     fn get<RB: RangeBounds<usize>>(&self, r: RB) -> Option<impl QueryIter> {
         self.text
             .get((r.start_bound().cloned(), r.end_bound().cloned()))
