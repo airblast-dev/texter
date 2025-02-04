@@ -7,10 +7,8 @@ impl<'a, T: 'a> QueryIter<'a> for T where T: Iterator<Item = &'a str> + FusedIte
 
 pub trait Queryable: Display {
     fn get<RB: RangeBounds<usize>>(&self, r: RB) -> Option<impl QueryIter>;
-    fn get_single<RB: RangeBounds<usize>>(&self, r: RB) -> Option<Cow<'_, str>> {
-        self.get(r).map(Cow::from_iter)
-    }
-
+    fn get_single<RB: RangeBounds<usize>>(&self, r: RB) -> Cow<'_, str>;
+    fn try_get_single<RB: RangeBounds<usize>>(&self, r: RB) -> Option<Cow<'_, str>>;
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool {
         self.len() == 0
@@ -18,7 +16,13 @@ pub trait Queryable: Display {
 }
 
 impl Queryable for &str {
-    fn get_single<RB: RangeBounds<usize>>(&self, r: RB) -> Option<Cow<'_, str>> {
+    fn get_single<RB: RangeBounds<usize>>(&self, r: RB) -> Cow<'_, str> {
+        let sb = r.start_bound().cloned();
+        let eb = r.end_bound().cloned();
+        Cow::Borrowed(&self[(sb, eb)])
+    }
+
+    fn try_get_single<RB: RangeBounds<usize>>(&self, r: RB) -> Option<Cow<'_, str>> {
         let sb = r.start_bound().cloned();
         let eb = r.end_bound().cloned();
         str::get(self, (sb, eb)).map(Cow::Borrowed)
@@ -40,7 +44,13 @@ impl Queryable for &str {
 }
 
 impl Queryable for &Text {
-    fn get_single<RB: RangeBounds<usize>>(&self, r: RB) -> Option<Cow<'_, str>> {
+    fn get_single<RB: RangeBounds<usize>>(&self, r: RB) -> Cow<'_, str> {
+        let sb = r.start_bound().cloned();
+        let eb = r.end_bound().cloned();
+        Cow::Borrowed(&self.text.as_str()[(sb, eb)])
+    }
+
+    fn try_get_single<RB: RangeBounds<usize>>(&self, r: RB) -> Option<Cow<'_, str>> {
         let sb = r.start_bound().cloned();
         let eb = r.end_bound().cloned();
         self.text.as_str().get((sb, eb)).map(Cow::Borrowed)
