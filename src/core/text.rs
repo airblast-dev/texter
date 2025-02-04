@@ -79,9 +79,7 @@ impl PartialEq for Text {
     }
 }
 
-/// An [`Updateable`] that guarantees a [`str`] slice as its queryable.
-pub trait StrUpdateable: for<'a> Updateable<&'a str> {}
-impl<T> StrUpdateable for T where T: for<'a> Updateable<&'a str> {}
+
 
 pub trait TextUpdateable: for<'a> Updateable<&'a Text> {}
 impl<T> TextUpdateable for T where T: for<'a> Updateable<&'a Text> {}
