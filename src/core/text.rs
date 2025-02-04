@@ -79,8 +79,6 @@ impl PartialEq for Text {
     }
 }
 
-
-
 pub trait TextUpdateable: for<'a> Updateable<&'a Text> {}
 impl<T> TextUpdateable for T where T: for<'a> Updateable<&'a Text> {}
 
