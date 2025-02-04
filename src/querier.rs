@@ -14,7 +14,10 @@ pub trait Queryable: Display {
     type Iter<'a>: QueryIter<'a>
     where
         Self: 'a;
-    fn get<RB: RangeBounds<usize>>(&self, r: RB) -> Self::Iter<'_>;
+    fn get<RB: RangeBounds<usize>>(&self, r: RB) -> Self::Iter<'_> {
+        self.try_get(r)
+            .expect("range out of bounds or not on a char boundary")
+    }
     fn try_get<RB: RangeBounds<usize>>(&self, r: RB) -> Option<Self::Iter<'_>>;
     fn get_single<RB: RangeBounds<usize>>(&self, r: RB) -> Cow<'_, str> {
         self.try_get_single(r)
