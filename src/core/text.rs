@@ -79,9 +79,12 @@ impl PartialEq for Text {
     }
 }
 
-/// An [`Updateable`] that guarantees a [`str`] slice as its queryable. 
+/// An [`Updateable`] that guarantees a [`str`] slice as its queryable.
 pub trait StrUpdateable: for<'a> Updateable<&'a str> {}
 impl<T> StrUpdateable for T where T: for<'a> Updateable<&'a str> {}
+
+pub trait TextUpdateable: for<'a> Updateable<&'a Text> {}
+impl<T> TextUpdateable for T where T: for<'a> Updateable<&'a Text> {}
 
 impl Text {
     /// Creates a new [`Text`] that expects UTF-8 encoded positions.
@@ -159,7 +162,7 @@ impl Text {
     /// The positions in the provided [`Change`] will be transformed to the expected encoding
     /// depending on how the [`Text`] was constructed.
     #[instrument(skip(change, updateable))]
-    pub fn update<'a, U: StrUpdateable, C: Into<Change<'a>>>(
+    pub fn update<'a, U: TextUpdateable, C: Into<Change<'a>>>(
         &mut self,
         change: C,
         updateable: &mut U,
@@ -185,7 +188,7 @@ impl Text {
     ///
     /// If the [`EolIndexes`] of [`Text`] has a length of zero.
     #[inline]
-    pub fn delete<U: StrUpdateable>(
+    pub fn delete<U: TextUpdateable>(
         &mut self,
         mut start: GridIndex,
         mut end: GridIndex,
@@ -214,7 +217,7 @@ impl Text {
             change: ChangeContext::Delete { start, end },
             breaklines: &self.br_indexes,
             old_breaklines: &self.old_br_indexes,
-            queryable: self.text.as_str(),
+            queryable: self,
         })?;
 
         self.text.drain(byte_range);
@@ -232,7 +235,7 @@ impl Text {
     ///
     /// If the [`EolIndexes`] of [`Text`] has a length of zero.
     #[inline]
-    pub fn insert<U: StrUpdateable>(
+    pub fn insert<U: TextUpdateable>(
         &mut self,
         s: &str,
         mut at: GridIndex,
@@ -260,7 +263,7 @@ impl Text {
             },
             breaklines: &self.br_indexes,
             old_breaklines: &self.old_br_indexes,
-            queryable: self.text.as_str(),
+            queryable: self,
         })?;
 
         self.text.insert_str(end_byte, s);
@@ -281,7 +284,7 @@ impl Text {
     ///
     /// If the [`EolIndexes`] of [`Text`] has a length of zero.
     #[inline]
-    pub fn replace<U: StrUpdateable>(
+    pub fn replace<U: TextUpdateable>(
         &mut self,
         s: &str,
         mut start: GridIndex,
@@ -329,7 +332,7 @@ impl Text {
             },
             breaklines: &self.br_indexes,
             old_breaklines: &self.old_br_indexes,
-            queryable: self.text.as_str(),
+            queryable: self,
         })?;
 
         // String::replace_range contains quite a bit of checks that we do not need.
@@ -406,7 +409,7 @@ impl Text {
         Ok(())
     }
     #[inline]
-    pub fn replace_full<U: StrUpdateable>(
+    pub fn replace_full<U: TextUpdateable>(
         &mut self,
         s: Cow<'_, str>,
         updateable: &mut U,
@@ -416,7 +419,7 @@ impl Text {
             change: ChangeContext::ReplaceFull { text: s.as_ref() },
             breaklines: &self.br_indexes,
             old_breaklines: &self.old_br_indexes,
-            queryable: self.text.as_str(),
+            queryable: self,
         })?;
         match s {
             Cow::Borrowed(s) => {

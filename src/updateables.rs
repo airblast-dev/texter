@@ -49,8 +49,8 @@ pub struct UpdateContext<'a, Q: 'a> {
     /// in a buffer.
     ///
     /// See [`Tree`][`tree_sitter::Tree`]'s [`Updateable`] implementation for an example that requires a
-    /// [`Queryable`][`crate::querier::Queryable`]. Implementors are not required to use 
-    /// [`Queryable`][`crate::querier::Queryable`] as a trait bound but it is recommended to use it 
+    /// [`Queryable`][`crate::querier::Queryable`]. Implementors are not required to use
+    /// [`Queryable`][`crate::querier::Queryable`] as a trait bound but it is recommended to use it
     /// instead of supporting a specific type where possible.
     pub queryable: Q,
 }
@@ -84,6 +84,10 @@ where
         self(ctx)
     }
 }
+
+/// An [`Updateable`] that requires a full [`str`] slice as its queryable.
+pub trait StrUpdateable: for<'a> Updateable<&'a str> {}
+impl<T> StrUpdateable for T where T: for<'a> Updateable<&'a str> {}
 
 #[cfg_attr(docsrs, doc(cfg(feature = "tree-sitter")))]
 #[cfg(feature = "tree-sitter")]
