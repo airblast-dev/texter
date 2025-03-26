@@ -636,7 +636,7 @@ dependencies = [
 
 [[package]]
 name = "texter"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "criterion",
  "lsp-types",
