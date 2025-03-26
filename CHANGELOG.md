@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/airblast-dev/texter/compare/v0.1.6...v0.2.0) - 2025-03-26
+
+### Other
+
+- [**breaking**] update tree-sitter to latest
+
 ## [0.1.6](https://github.com/airblast-dev/texter/compare/v0.1.5...v0.1.6) - 2025-03-26
 
 ### Fixed
