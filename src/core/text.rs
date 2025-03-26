@@ -3,6 +3,7 @@ use std::{
     borrow::Cow,
     cmp::Ordering,
     fmt::{Debug, Display},
+    mem::MaybeUninit,
     ops::Range,
 };
 
@@ -313,46 +314,46 @@ impl Text {
             if range_dif < s.len() {
                 v.reserve(s.len() - range_dif);
             }
-            let v_ptr = v.as_mut_ptr();
-            // SAFETY: We checked the range end is a char boundary which also means it is
-            // safe to offset as it also means it is in bounds.
-            let end_ptr = unsafe { v_ptr.add(range.end) };
 
             // In case this panics and it is attempted to be read through unsafe code we
             // dont want to expose possibly invalid UTF-8.
             unsafe { v.set_len(0) };
+            let v_spare = v.spare_capacity_mut();
+
+            // SAFETY: &[u8] and &[MaybeUninit<u8>] have the same layout and size
+            // prefer MaybeUninit::copy_from_slice when it is stable
+            let s_uninit =
+                unsafe { core::mem::transmute::<&[u8], &[MaybeUninit<u8>]>(s.as_bytes()) };
 
             // ideally we can remove the branch, but not sure how to do it without
             // introducing safety, or panic problems.
-            let new_len = match range_dif.cmp(&s.len()) {
+            let (dst, src_end, new_len) = match range_dif.cmp(&s.len()) {
                 Ordering::Less => {
                     let dif = s.len() - range_dif;
                     // maybe rotating is faster?
-                    unsafe {
-                        // SAFETY: range start and end are a char boundary.
-                        // We have already reserved the necessary space above so it is safe
-                        // to move over the contents.
-                        std::ptr::copy(end_ptr, end_ptr.add(dif), len - range.end);
-                        len + dif
-                    }
+                    // SAFETY: range start and end are a char boundary.
+                    // We have already reserved the necessary space above so it is safe
+                    // to move over the contents.
+
+                    let end_point = range.end + dif;
+                    (end_point, len, len + dif)
                 }
                 Ordering::Greater => {
                     let dif = range_dif - s.len();
-                    unsafe {
-                        // SAFETY: range start and end are a char boundary.
-                        // Since we are subtracting the new str's len from end - start, it
-                        // cannot point to out of bounds.
-                        std::ptr::copy(end_ptr, end_ptr.sub(dif), len - range.end);
-                        len - dif
-                    }
+                    // SAFETY: range start and end are a char boundary.
+                    // Since we are subtracting the new str's len from end - start, it
+                    // cannot point to out of bounds.
+                    (range.end - dif, len, len - dif)
                 }
-                Ordering::Equal => len,
+                // return the same value for dst and dst_end to avoid extra copies
+                Ordering::Equal => (range.end, range.end, len),
             };
 
+            v_spare.copy_within(range.end..src_end, dst);
             unsafe {
                 // SAFETY: range start is in a char boundary, we have already reserved
                 // space if needed, and moved over the old contents.
-                std::ptr::copy_nonoverlapping(s.as_ptr(), v_ptr.add(range.start), s.len());
+                v_spare[range.start..range.start + s.len()].copy_from_slice(s_uninit);
                 // SAFETY: all of the values of the inner Vec is now initialized and valid UTF-8
                 v.set_len(new_len);
             };
