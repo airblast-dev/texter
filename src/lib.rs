@@ -19,6 +19,7 @@
 //!
 //! The example below works the same way to how it is done in `rust-analyzer`.
 //! ```
+//! # #[cfg( feature = "lsp-types")] {
 //! # fn get_client_encoding() -> Option<Vec<PositionEncodingKind>> {None}
 //! use texter::core::text::Text;
 //! use texter::lsp_types::PositionEncodingKind;
@@ -42,6 +43,7 @@
 //!     // Too bad, UTF-16 it is.
 //!     Text::new_utf16
 //! }
+//! # }
 //! ```
 //!
 //! ### How to write an LSP using the crate?
