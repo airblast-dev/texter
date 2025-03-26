@@ -298,11 +298,6 @@ impl Text {
         // String::replace_range contains quite a bit of checks that we do not need.
         // It also internally uses splicing, which (probably) causes the elements to be
         // moved quite a bit when the replacing string exceeds the replaced str length.
-        //
-        // TODO: replace with safer implenetation.
-        // this works and performs very well, problem is there is a ton of unsafe that isn't really
-        // needed. We cannot remove all of the unsafe stuff, but I am pretty sure we should be able
-        // to rewrite this with 2-3 unsafe calls at most.
         #[inline(always)]
         fn fast_replace_range(text: &mut String, range: Range<usize>, s: &str) {
             let len = text.len();
@@ -315,8 +310,11 @@ impl Text {
                 v.reserve(s.len() - range_dif);
             }
 
-            // In case this panics and it is attempted to be read through unsafe code we
+            // SAFETY: In case this panics and it is attempted to be read through unsafe code we
             // dont want to expose possibly invalid UTF-8.
+            //
+            // Since the copy operation is done in two steps we temporarily may have an invalid
+            // string
             unsafe { v.set_len(0) };
             let v_spare = v.spare_capacity_mut();
 
@@ -330,12 +328,8 @@ impl Text {
             let (dst, src_end, new_len) = match range_dif.cmp(&s.len()) {
                 Ordering::Less => {
                     let dif = s.len() - range_dif;
-                    // maybe rotating is faster?
-                    // SAFETY: range start and end are a char boundary.
-                    // We have already reserved the necessary space above so it is safe
-                    // to move over the contents.
-
                     let end_point = range.end + dif;
+                    // SAFETY: range start and end are a char boundary.
                     (end_point, len, len + dif)
                 }
                 Ordering::Greater => {
@@ -350,10 +344,9 @@ impl Text {
             };
 
             v_spare.copy_within(range.end..src_end, dst);
+            // SAFETY: range start is in a char boundary
+            v_spare[range.start..range.start + s.len()].copy_from_slice(s_uninit);
             unsafe {
-                // SAFETY: range start is in a char boundary, we have already reserved
-                // space if needed, and moved over the old contents.
-                v_spare[range.start..range.start + s.len()].copy_from_slice(s_uninit);
                 // SAFETY: all of the values of the inner Vec is now initialized and valid UTF-8
                 v.set_len(new_len);
             };
