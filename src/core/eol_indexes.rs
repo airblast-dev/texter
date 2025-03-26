@@ -136,12 +136,18 @@ impl EolIndexes {
         if insert_count == 0 {
             // i is always <= replacing_len
             self.0[start + 1 + i..].rotate_left(replacing_len - i);
-            // safety variants of set_len require that the range is initialized which is already
-            // done.
-            //
-            // slightly faster than truncating as no checks or drops need to be performed.
-            // instead all is dealt with when the vec is dropped.
+
             let new_len = self.row_count().get() - (replacing_len - i);
+
+            // the set len below should never grow the vec
+            // debug_assert is probably better but better be safe than sorry
+            assert!(new_len <= self.0.len());
+
+            // SAFETY: safety requirements of set_len require that the range is initialized which is already
+            // done. This branch should never grow the vec, the assertion above checks that
+            //
+            // this is slightly faster than truncating as no checks or drops need to be performed.
+            // instead all is dealt with when the vec is dropped.
             unsafe {
                 self.0.set_len(new_len);
             }
