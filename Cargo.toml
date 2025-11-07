@@ -17,7 +17,6 @@ rustdoc-args = ["--cfg", "docsrs"]
 memchr = "2.7.4"
 lsp-types = { version = "0.97.0", optional = true }
 tree-sitter = { version = "0.25.3", optional = true }
-tracing = "0.1.40"
 
 [dev-dependencies]
 tree-sitter-html = "0.23.2"

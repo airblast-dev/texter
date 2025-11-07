@@ -1,4 +1,3 @@
-use tracing::instrument;
 
 use crate::{change::GridIndex, core::eol_indexes::EolIndexes, error::Result};
 
@@ -62,7 +61,6 @@ impl<T> Updateable for T
 where
     T: FnMut(UpdateContext) -> Result<()>,
 {
-    #[instrument(skip(self))]
     fn update(&mut self, ctx: UpdateContext) -> Result<()> {
         self(ctx)
     }
@@ -71,7 +69,6 @@ where
 #[cfg_attr(docsrs, doc(cfg(feature = "tree-sitter")))]
 #[cfg(feature = "tree-sitter")]
 mod ts {
-    use tracing::info;
     use tree_sitter::{InputEdit, Node, Point, Tree};
 
     use crate::error::{Error, Result};
@@ -193,7 +190,6 @@ mod ts {
                 },
             },
         };
-        info!("{:?}", ie);
         Ok(ie)
     }
 }

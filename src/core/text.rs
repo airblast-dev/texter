@@ -7,7 +7,6 @@ use std::{
     ops::Range,
 };
 
-use tracing::instrument;
 
 use super::{
     encodings::{EncodingFns, UTF16, UTF32, UTF8},
@@ -121,7 +120,6 @@ impl Text {
     ///
     /// The positions in the provided [`Change`] will be transformed to the expected encoding
     /// depending on how the [`Text`] was constructed.
-    #[instrument(skip(change, updateable))]
     pub fn update<'a, U: Updateable, C: Into<Change<'a>>>(
         &mut self,
         change: C,
