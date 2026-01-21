@@ -366,6 +366,7 @@ impl Text {
         s: Cow<'_, str>,
         updateable: &mut U,
     ) -> Result<()> {
+        self.update_prep();
         self.br_indexes = EolIndexes::new(&s);
         updateable.update(UpdateContext {
             change: ChangeContext::ReplaceFull { text: s.as_ref() },
@@ -1116,6 +1117,48 @@ mod tests {
 
             assert_eq!(t.text, "Hello, World!\nBye World!");
             assert_eq!(t.br_indexes, [0, 13]);
+        }
+    }
+
+    mod replace_full {
+        use std::borrow::Cow;
+
+        use super::*;
+
+        #[test]
+        fn single() {
+            let mut t = Text::new("Hello, World!".into());
+            assert_eq!(t.br_indexes, [0]);
+            t.replace_full(Cow::Borrowed("Goodbye, World!\nNew line"), &mut ())
+                .unwrap();
+
+            assert_eq!(t.text, "Goodbye, World!\nNew line");
+            assert_eq!(t.br_indexes, [0, 15]);
+        }
+
+        #[test]
+        fn multiple_calls() {
+            // Regression test: replace_full should work correctly when called multiple times
+            let mut t = Text::new_utf16("Initial text".into());
+            assert_eq!(t.br_indexes, [0]);
+
+            // First call
+            t.replace_full(Cow::Borrowed("First replacement\nWith newline"), &mut ())
+                .unwrap();
+            assert_eq!(t.text, "First replacement\nWith newline");
+            assert_eq!(t.br_indexes, [0, 17]);
+
+            // Second call - this previously panicked due to missing update_prep()
+            t.replace_full(Cow::Borrowed("Second replacement\nAnother line\nThird"), &mut ())
+                .unwrap();
+            assert_eq!(t.text, "Second replacement\nAnother line\nThird");
+            assert_eq!(t.br_indexes, [0, 18, 31]);
+
+            // Third call to ensure stability
+            t.replace_full(Cow::Borrowed("Final"), &mut ())
+                .unwrap();
+            assert_eq!(t.text, "Final");
+            assert_eq!(t.br_indexes, [0]);
         }
     }
 
