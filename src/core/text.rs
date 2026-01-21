@@ -367,7 +367,7 @@ impl Text {
         updateable: &mut U,
     ) -> Result<()> {
         self.update_prep();
-        self.br_indexes = EolIndexes::new(&s);
+        self.br_indexes.repopulate(&s);
         updateable.update(UpdateContext {
             change: ChangeContext::ReplaceFull { text: s.as_ref() },
             breaklines: &self.br_indexes,

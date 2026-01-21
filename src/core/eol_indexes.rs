@@ -33,10 +33,20 @@ impl<S: AsRef<[usize]>> PartialEq<S> for EolIndexes {
 impl EolIndexes {
     #[inline]
     pub fn new(s: &str) -> Self {
+        let mut e = Self(vec![]);
+        e.repopulate(s);
+        e
+    }
+
+    /// Repopulates the EOL indexes using the existing buffer
+    ///
+    /// Other than using the existing buffer, this is the equivalent to calling [`Self::new`].
+    #[inline]
+    pub fn repopulate(&mut self, s: &str) {
         let iter = FastEOL::new(s);
-        let mut byte_indexes = vec![0];
-        byte_indexes.extend(iter);
-        Self(byte_indexes)
+        self.0.clear();
+        self.0.push(0);
+        self.0.extend(iter);
     }
 
     /// The index to the first byte in the row.
@@ -234,6 +244,13 @@ mod tests {
     fn new() {
         let br = EolIndexes::new(S);
         assert_eq!(br.0, [0, 3, 9, 10, 11, 17, 18, 25, 29, 31]);
+    }
+
+    #[test]
+    fn repopulate() {
+        let mut br = EolIndexes::new("Hello\n\n\n\nBye");
+        br.repopulate(S);
+        assert_eq!(EolIndexes::new(S), br);
     }
 
     #[test]
