@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2](https://github.com/airblast-dev/texter/compare/v0.2.1...v0.2.2)
+
+### 🐛 Bug Fixes
+
+
+- Add missing update_prep call in replace_full - ([823e841](https://github.com/airblast-dev/texter/commit/823e84103c817662bc9b071b2e58a1201ebc22ea))
+
+### ⚡ Performance
+
+
+- Reuse eol indexes buffer in replace_full - ([4a29a41](https://github.com/airblast-dev/texter/commit/4a29a41223e5f11949f3fe1813b79f4fe3f8af8a))
+
+### 🧪 Testing
+
+
+- Add benchmark for replace_full - ([48b456c](https://github.com/airblast-dev/texter/commit/48b456cf799a360354e225ad7be800e57b900fa9))
+
+
 ## [0.2.1](https://github.com/airblast-dev/texter/compare/v0.2.0...v0.2.1)
 
 ### 🚜 Refactor
