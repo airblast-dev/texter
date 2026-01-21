@@ -1,11 +1,15 @@
+use std::borrow::Cow;
+
 use criterion::{criterion_group, BatchSize, Criterion};
 use texter::{
     change::{Change, GridIndex},
     core::text::Text,
 };
 
+const SAMPLE_DATA: &str = include_str!("sample_file.txt");
+
 fn text(c: &mut Criterion) {
-    let text = Text::new(include_str!("sample_file.txt").to_string());
+    let text = Text::new(SAMPLE_DATA.to_string());
     c.bench_function("delete", |b| {
         b.iter_batched(
             || {
@@ -103,6 +107,29 @@ fn text(c: &mut Criterion) {
                             end: GridIndex { row: 6, col: 5 },
                             text: "Simple".repeat(20).into(),
                         },
+                    ],
+                )
+            },
+            |(mut text, chs)| {
+                for ch in chs {
+                    text.update(ch, &mut ()).unwrap();
+                }
+            },
+            BatchSize::SmallInput,
+        );
+    })
+    .bench_function("replace_full", |b| {
+        b.iter_batched(
+            || {
+                (
+                    text.clone(),
+                    vec![
+                        Change::ReplaceFull(Cow::Owned(SAMPLE_DATA.repeat(6))),
+                        Change::ReplaceFull(Cow::Owned(SAMPLE_DATA.repeat(2))),
+                        Change::ReplaceFull(Cow::Owned(SAMPLE_DATA.repeat(3))),
+                        Change::ReplaceFull(Cow::Owned(SAMPLE_DATA.repeat(4))),
+                        Change::ReplaceFull(Cow::Owned(SAMPLE_DATA.repeat(3))),
+                        Change::ReplaceFull(Cow::Borrowed("")),
                     ],
                 )
             },
