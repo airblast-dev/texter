@@ -199,6 +199,36 @@ impl GridIndex {
         Ok(())
     }
 
+    /// Transform the positions from the [`Text`]'s expected encoding, to UTF-8 positions.
+    ///
+    /// Unlike [`GridIndex::normalize`], this does not mutate the [`Text`].
+    pub fn normalize_2(&mut self, text: &Text) -> Result<()> {
+        let br_indexes = &text.br_indexes;
+        let row_count = br_indexes.row_count();
+
+        let pure_line = match self.row == row_count.get() {
+            true => "\n",
+            false => {
+                let row_start = br_indexes
+                    .row_start(self.row)
+                    .ok_or(Error::oob_row(row_count, self.row))?;
+                if !br_indexes.is_last_row(self.row) && row_count.get() > 1 {
+                    let row_end = br_indexes
+                        .row_start(self.row + 1)
+                        .ok_or(Error::oob_row(row_count, self.row))?;
+                    let base_line = &text.text[row_start..row_end];
+                    trim_eol_from_end(base_line)
+                } else {
+                    &text.text[row_start..]
+                }
+            }
+        };
+
+        self.col = (text.encoding[0])(pure_line, self.col)?;
+
+        Ok(())
+    }
+
     /// Transform the positions to the [`Text`]'s expected encoding, from UTF-8 positions.
     pub fn denormalize(&mut self, text: &Text) -> Result<()> {
         let br_indexes = &text.br_indexes;
