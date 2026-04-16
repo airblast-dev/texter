@@ -185,21 +185,6 @@ impl GridIndex {
         Ok(())
     }
 
-    /// Transform the positions from the [`Text`]'s expected encoding, to UTF-8 positions.
-    ///
-    /// Unlike [`GridIndex::normalize`], this does not mutate the [`Text`].
-    pub fn normalize_2(&mut self, text: &Text) -> Result<()> {
-        let pure_line = if self.row == text.br_indexes.row_count().get() {
-            "\n"
-        } else {
-            resolve_pure_line(text, self.row)?
-        };
-
-        self.col = (text.encoding[0])(pure_line, self.col)?;
-
-        Ok(())
-    }
-
     /// Transform the positions to the [`Text`]'s expected encoding, from UTF-8 positions.
     pub fn denormalize(&mut self, text: &Text) -> Result<()> {
         let pure_line = resolve_pure_line(text, self.row)?;
