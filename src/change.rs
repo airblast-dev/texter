@@ -170,19 +170,18 @@ mod lspt {
 impl GridIndex {
     /// Transform the positions from the [`Text`]'s expected encoding, to UTF-8 positions.
     ///
-    /// If the row value of the [`GridIndex`] is same as the number of rows, this will insert a
-    /// line break.
-    pub fn normalize(&mut self, text: &mut Text) -> Result<()> {
+    /// Returns `Ok(None)` when normalization succeeded normally.
+    /// Returns `Ok(Some("\n"))` when the row is at `row_count`, signaling a missing trailing
+    /// newline. The caller can then decide to append it, ignore it, or error.
+    pub fn normalize<'a>(&mut self, text: &'a Text) -> Result<Option<&'a str>> {
         if self.row == text.br_indexes.row_count().get() {
-            let last = text.br_indexes.last_row_start();
-            text.br_indexes.insert_index(self.row, last);
-            text.text.push('\n');
+            return Ok(Some("\n"));
         }
 
         let pure_line = resolve_pure_line(text, self.row)?;
         self.col = (text.encoding[0])(pure_line, self.col)?;
 
-        Ok(())
+        Ok(None)
     }
 
     /// Transform the positions to the [`Text`]'s expected encoding, from UTF-8 positions.

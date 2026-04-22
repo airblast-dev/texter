@@ -153,8 +153,14 @@ impl Text {
         updateable: &mut U,
     ) -> Result<()> {
         self.update_prep();
-        start.normalize(self)?;
-        end.normalize(self)?;
+        if start.normalize(self)?.is_some() {
+            self.push_trailing_newline(&start);
+            start.normalize(self)?;
+        }
+        if end.normalize(self)?.is_some() {
+            self.push_trailing_newline(&end);
+            end.normalize(self)?;
+        }
         correct_positions(&mut start, &mut end);
         let max_row = self.br_indexes.row_count();
         let row_start_index = self
@@ -200,7 +206,10 @@ impl Text {
         updateable: &mut U,
     ) -> Result<()> {
         self.update_prep();
-        at.normalize(self)?;
+        if at.normalize(self)?.is_some() {
+            self.push_trailing_newline(&at);
+            at.normalize(self)?;
+        }
         let row_count = self.br_indexes.row_count();
         let row_end_index = self
             .nth_row(at.row)
@@ -250,8 +259,14 @@ impl Text {
         updateable: &mut U,
     ) -> Result<()> {
         self.update_prep();
-        start.normalize(self)?;
-        end.normalize(self)?;
+        if start.normalize(self)?.is_some() {
+            self.push_trailing_newline(&start);
+            start.normalize(self)?;
+        }
+        if end.normalize(self)?.is_some() {
+            self.push_trailing_newline(&end);
+            end.normalize(self)?;
+        }
         correct_positions(&mut start, &mut end);
         let row_count = self.br_indexes.row_count();
         let row_start_index = self
@@ -417,6 +432,19 @@ impl Text {
 
     fn update_prep(&mut self) {
         self.old_br_indexes.clone_from(&self.br_indexes);
+    }
+
+    /// Append a synthetic trailing newline so that `grid.row` (which points one past the last
+    /// existing row) becomes addressable.
+    ///
+    /// Called by `delete`/`insert`/`replace` when [`GridIndex::normalize`] returns `Some(_)`,
+    /// signaling that the requested row is `row_count` (i.e., the line break for the previous
+    /// row is missing). The caller is expected to re-run `normalize` afterwards to encode the
+    /// column against the now-existing empty line.
+    fn push_trailing_newline(&mut self, grid: &GridIndex) {
+        let last = self.br_indexes.last_row_start();
+        self.br_indexes.insert_index(grid.row, last);
+        self.text.push('\n');
     }
 }
 
@@ -1149,14 +1177,16 @@ mod tests {
             assert_eq!(t.br_indexes, [0, 17]);
 
             // Second call - this previously panicked due to missing update_prep()
-            t.replace_full(Cow::Borrowed("Second replacement\nAnother line\nThird"), &mut ())
-                .unwrap();
+            t.replace_full(
+                Cow::Borrowed("Second replacement\nAnother line\nThird"),
+                &mut (),
+            )
+            .unwrap();
             assert_eq!(t.text, "Second replacement\nAnother line\nThird");
             assert_eq!(t.br_indexes, [0, 18, 31]);
 
             // Third call to ensure stability
-            t.replace_full(Cow::Borrowed("Final"), &mut ())
-                .unwrap();
+            t.replace_full(Cow::Borrowed("Final"), &mut ()).unwrap();
             assert_eq!(t.text, "Final");
             assert_eq!(t.br_indexes, [0]);
         }
