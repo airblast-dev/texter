@@ -42,6 +42,20 @@ impl Error {
             current,
         }
     }
+
+    /// Check if the error is caused by a single missing newline
+    ///
+    /// Some LSP servers and clients may assume an extra newline exists at the end.
+    /// In the majority of these cases the correct fix is to append an empty line to the string.
+    /// This function returns [`true`] if the error can be fixed/ignored by appending a newline.
+    #[inline]
+    pub fn is_missing_newline(self) -> bool {
+        if let Self::OutOfBoundsRow { max, current } = self {
+            max + 1 == current
+        } else {
+            false
+        }
+    }
 }
 
 impl std::error::Error for Error {}

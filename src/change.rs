@@ -172,13 +172,11 @@ impl GridIndex {
     ///
     /// If the row value of the [`GridIndex`] is same as the number of rows, this will insert a
     /// line break.
-    pub fn normalize(&mut self, text: &mut Text) -> Result<()> {
-        let br_indexes = &mut text.br_indexes;
-        let mut row_count = br_indexes.row_count();
+    pub fn normalize(&mut self, text: &Text) -> Result<()> {
+        let br_indexes = &text.br_indexes;
+        let row_count = br_indexes.row_count();
         if self.row == row_count.get() {
-            br_indexes.insert_index(self.row, br_indexes.last_row_start());
-            text.text.push('\n');
-            row_count = row_count.saturating_add(1);
+            return Err(Error::oob_row(row_count, self.row));
         }
 
         let row_start = br_indexes
