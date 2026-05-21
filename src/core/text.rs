@@ -887,7 +887,7 @@ mod tests {
     }
 
     mod replace {
-        use std::{borrow::Cow, num::NonZeroUsize};
+        use std::num::NonZeroUsize;
 
         use crate::error::Error;
 
@@ -1120,8 +1120,7 @@ mod tests {
                 .unwrap_err();
             assert_eq!(err, Error::oob_row(NonZeroUsize::new(6).unwrap(), 6));
             t.text.push('\n');
-            t.br_indexes
-                .insert_index(6, t.br_indexes.last_row_start());
+            t.br_indexes.insert_index(6, t.br_indexes.last_row_start());
             t.replace(
                 "Hello, World!\nBye World!",
                 GridIndex { row: 0, col: 0 },
