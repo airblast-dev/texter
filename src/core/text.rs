@@ -7,7 +7,6 @@ use std::{
     ops::Range,
 };
 
-
 use super::{
     encodings::{EncodingFns, UTF16, UTF32, UTF8},
     eol_indexes::EolIndexes,
@@ -888,6 +887,10 @@ mod tests {
     }
 
     mod replace {
+        use std::{borrow::Cow, num::NonZeroUsize};
+
+        use crate::error::Error;
+
         use super::*;
 
         #[test]
@@ -1107,6 +1110,18 @@ mod tests {
                 Text::new("SomeText\nSome Other Text\nSome somsoemesome\n wowoas \n\n".into());
 
             assert_eq!(t.br_indexes, [0, 8, 24, 42, 51, 52]);
+            let err = t
+                .replace(
+                    "Hello, World!\nBye World!",
+                    GridIndex { row: 0, col: 0 },
+                    GridIndex { row: 6, col: 0 },
+                    &mut (),
+                )
+                .unwrap_err();
+            assert_eq!(err, Error::oob_row(NonZeroUsize::new(6).unwrap(), 6));
+            t.text.push('\n');
+            t.br_indexes
+                .insert_index(6, t.br_indexes.last_row_start());
             t.replace(
                 "Hello, World!\nBye World!",
                 GridIndex { row: 0, col: 0 },
@@ -1114,7 +1129,6 @@ mod tests {
                 &mut (),
             )
             .unwrap();
-
             assert_eq!(t.text, "Hello, World!\nBye World!");
             assert_eq!(t.br_indexes, [0, 13]);
         }
@@ -1149,14 +1163,16 @@ mod tests {
             assert_eq!(t.br_indexes, [0, 17]);
 
             // Second call - this previously panicked due to missing update_prep()
-            t.replace_full(Cow::Borrowed("Second replacement\nAnother line\nThird"), &mut ())
-                .unwrap();
+            t.replace_full(
+                Cow::Borrowed("Second replacement\nAnother line\nThird"),
+                &mut (),
+            )
+            .unwrap();
             assert_eq!(t.text, "Second replacement\nAnother line\nThird");
             assert_eq!(t.br_indexes, [0, 18, 31]);
 
             // Third call to ensure stability
-            t.replace_full(Cow::Borrowed("Final"), &mut ())
-                .unwrap();
+            t.replace_full(Cow::Borrowed("Final"), &mut ()).unwrap();
             assert_eq!(t.text, "Final");
             assert_eq!(t.br_indexes, [0]);
         }

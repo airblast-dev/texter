@@ -172,27 +172,13 @@ impl GridIndex {
     ///
     /// If the row value of the [`GridIndex`] is same as the number of rows, this will insert a
     /// line break.
-    pub fn normalize(&mut self, text: &mut Text) -> Result<()> {
-        let br_indexes = &mut text.br_indexes;
-        let mut row_count = br_indexes.row_count();
+    pub fn normalize(&mut self, text: &Text) -> Result<()> {
+        let br_indexes = &text.br_indexes;
+        let row_count = br_indexes.row_count();
         if self.row == row_count.get() {
-            br_indexes.insert_index(self.row, br_indexes.last_row_start());
-            text.text.push('\n');
-            row_count = row_count.saturating_add(1);
+            return Err(Error::oob_row(row_count, self.row));
         }
-
-        let row_start = br_indexes
-            .row_start(self.row)
-            .ok_or(Error::oob_row(row_count, self.row))?;
-        let pure_line = if !br_indexes.is_last_row(self.row) && row_count.get() > 1 {
-            let row_end = br_indexes
-                .row_start(self.row + 1)
-                .ok_or(Error::oob_row(row_count, self.row))?;
-            let base_line = &text.text[row_start..row_end];
-            trim_eol_from_end(base_line)
-        } else {
-            &text.text[row_start..]
-        };
+        let pure_line = resolve_pure_line(text, self.row)?;
 
         self.col = (text.encoding[0])(pure_line, self.col)?;
 
@@ -201,20 +187,7 @@ impl GridIndex {
 
     /// Transform the positions to the [`Text`]'s expected encoding, from UTF-8 positions.
     pub fn denormalize(&mut self, text: &Text) -> Result<()> {
-        let br_indexes = &text.br_indexes;
-        let row_count = br_indexes.row_count();
-        let row_start = br_indexes
-            .row_start(self.row)
-            .ok_or(Error::oob_row(row_count, self.row))?;
-        let pure_line = if !br_indexes.is_last_row(self.row) && row_count.get() > 1 {
-            let row_end = br_indexes
-                .row_start(self.row + 1)
-                .ok_or(Error::oob_row(row_count, self.row))?;
-            let base_line = &text.text[row_start..row_end];
-            trim_eol_from_end(base_line)
-        } else {
-            &text.text[row_start..]
-        };
+        let pure_line = resolve_pure_line(text, self.row)?;
 
         self.col = (text.encoding[1])(pure_line, self.col)?;
 
@@ -227,5 +200,22 @@ pub(crate) fn correct_positions(start: &mut GridIndex, end: &mut GridIndex) {
         start.col = start.col.saturating_add(1);
         end.col += 1;
         std::mem::swap(start, end);
+    }
+}
+
+/// Resolve the line content for the given row, trimming EOL for non-last rows.
+pub(crate) fn resolve_pure_line(text: &Text, row: usize) -> Result<&str> {
+    let br_indexes = &text.br_indexes;
+    let row_count = br_indexes.row_count();
+    let row_start = br_indexes
+        .row_start(row)
+        .ok_or(Error::oob_row(row_count, row))?;
+    if !br_indexes.is_last_row(row) && row_count.get() > 1 {
+        let row_end = br_indexes
+            .row_start(row + 1)
+            .ok_or(Error::oob_row(row_count, row))?;
+        Ok(trim_eol_from_end(&text.text[row_start..row_end]))
+    } else {
+        Ok(&text.text[row_start..])
     }
 }
