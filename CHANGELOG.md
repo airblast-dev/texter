@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0]
+
+### 🐛 Bug Fixes
+
+
+- [**breaking**] Return error when the normalized row is off by one - ([b3e96b9](https://github.com/airblast-dev/texter/commit/b3e96b912dcbda07e8166570744dfab97f90c349))
+
+### 🚜 Refactor
+
+
+- Remove unused import - ([21e9a37](https://github.com/airblast-dev/texter/commit/21e9a37c2387295bb27a97dbe39a1d9483563e53))
+- Reuse pure line logic in normalize and denormalize - ([3aa13a7](https://github.com/airblast-dev/texter/commit/3aa13a7e6169f4cfb94a18b2c5296d4eb38a697d))
+
+### ⚙️ Miscellaneous Tasks
+
+
+- Update lock file - ([2b8c214](https://github.com/airblast-dev/texter/commit/2b8c2145fa83e0c2823ce76c254f9213f89159fd))
+- Bump version - ([4b0216c](https://github.com/airblast-dev/texter/commit/4b0216c7ceebf0cae210643432bbcdc0cb813a3e))
+
+
 ## [0.2.2](https://github.com/airblast-dev/texter/compare/v0.2.1...v0.2.2)
 
 ### 🐛 Bug Fixes
